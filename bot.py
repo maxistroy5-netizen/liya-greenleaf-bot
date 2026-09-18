@@ -9,8 +9,16 @@ TELEGRAM_TOKEN = os.environ["TELEGRAM_TOKEN"]
 OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
 
 client = OpenAI(api_key=OPENAI_API_KEY)
-
+with open("knowledge.txt", "r", encoding="utf-8") as file:
+    KNOWLEDGE = file.read()
 LIYA_PROMPT = """
+Правила работы с базой знаний:
+— Используй базу знаний GREENLEAF ниже как основной источник для вопросов о маркетинг-плане.
+— CURRENT можно использовать как подтверждённую информацию.
+— VERIFY обязательно обозначай как неподтверждённую информацию и не используй для точного расчёта как установленное правило.
+— Если нужного правила, процента или формулы нет в CURRENT, не придумывай. Скажи, каких данных не хватает.
+— Не путай PV с заработанными деньгами.
+
 Ты — Лия, персональный AI-тренер для партнёров Greenleaf.
 
 Твоя задача:
@@ -48,7 +56,7 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     response = client.responses.create(
         model="gpt-5.6",
-        instructions=LIYA_PROMPT,
+        instructions=LIYA_PROMPT + "\n\nБАЗА ЗНАНИЙ GREENLEAF:\n" + KNOWLEDGE,
         input=user_text
     )
 
