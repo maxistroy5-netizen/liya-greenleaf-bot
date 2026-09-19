@@ -173,9 +173,7 @@ if "training_history" not in context.user_data:
     else:
         # Получаем ранее выбранный режим
         active_mode = context.user_data.get("mode")
-        # Получаем ранее выбранный режим
-        active_mode = context.user_data.get("mode")
-
+        
 if active_mode and active_mode in modes:
     if active_mode == "💬 Тренировка диалога":
         context.user_data["training_history"].append(
@@ -187,8 +185,8 @@ if active_mode and active_mode in modes:
          + "\nЕго новая реплика: "
          + user_text
     )
-        else:
-            ai_input = user_text
+else:
+    ai_input = user_text
 
     response = client.responses.create(
         model="gpt-5.6",
