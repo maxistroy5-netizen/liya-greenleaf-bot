@@ -126,12 +126,23 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ),
     }
 
-    mode_instruction = modes.get(user_text, "")
-
-    if mode_instruction:
-        ai_input = mode_instruction
+        # Если пользователь нажал кнопку режима — запоминаем этот режим
+    if user_text in modes:
+        context.user_data["mode"] = user_text
+        ai_input = modes[user_text]
     else:
-        ai_input = user_text
+        # Получаем ранее выбранный режим
+        active_mode = context.user_data.get("mode")
+
+        if active_mode and active_mode in modes:
+            ai_input = (
+                modes[active_mode]
+                + "\n\nПользователь продолжает текущий режим."
+                + "\nЕго новая реплика: "
+                + user_text
+            )
+        else:
+            ai_input = user_text
 
     response = client.responses.create(
         model="gpt-5.6",
