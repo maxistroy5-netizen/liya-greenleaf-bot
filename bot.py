@@ -280,7 +280,7 @@ response = client.responses.create(
         )
 
     await update.message.reply_text(
-        response.output_text,
+    response.output_text,
         reply_markup=MAIN_KEYBOARD
     )
    
