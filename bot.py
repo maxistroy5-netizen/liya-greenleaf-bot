@@ -2,13 +2,22 @@ import os
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from openai import OpenAI
-from telegram import Update
+from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
 
 TELEGRAM_TOKEN = os.environ["TELEGRAM_TOKEN"]
 OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
 
 client = OpenAI(api_key=OPENAI_API_KEY)
+MAIN_KEYBOARD = ReplyKeyboardMarkup(
+    [
+        ["🌱 Я новичок", "📊 Маркетинг-план"],
+        ["🤝 Подготовка к встрече", "💬 Тренировка диалога"],
+        ["🎓 Проверить знания", "✍️ Задать вопрос"],
+    ],
+    resize_keyboard=True,
+    is_persistent=True,
+)
 with open("knowledge.txt", "r", encoding="utf-8") as file:
     KNOWLEDGE = file.read()
 LIYA_PROMPT = """
@@ -48,7 +57,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Я помогу разобраться в маркетинг-плане, "
         "подготовиться к встрече, потренировать диалог "
         "и проверить знания.\n\n"
-        "Напиши мне свой вопрос или скажи: «Я новичок»."
+        "Напиши мне свой вопрос или скажи: «Я новичок».",
+        reply_markup=MAIN_KEYBOARD
     )
 
 async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
