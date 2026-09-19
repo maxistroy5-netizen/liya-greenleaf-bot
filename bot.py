@@ -252,36 +252,36 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             ai_input = user_text
 
-training_level_prompt = context.user_data.get("training_level_prompt", "")
-
-final_instructions = (
-    LIYA_PROMPT
-    + "\n\nБАЗА ЗНАНИЙ GREENLEAF:\n"
-    + KNOWLEDGE
-)
-
-if context.user_data.get("mode") == "💬 Тренировка диалога":
-    final_instructions += (
-        "\n\nНАСТРОЙКИ ТЕКУЩЕЙ ТРЕНИРОВКИ:\n"
-        + training_level_prompt
-        + "\nСтрого соблюдай выбранный уровень сложности до конца тренировки."
+    training_level_prompt = context.user_data.get("training_level_prompt", "")
+    
+    final_instructions = (
+        LIYA_PROMPT
+        + "\n\nБАЗА ЗНАНИЙ GREENLEAF:\n"
+        + KNOWLEDGE
     )
-
-response = client.responses.create(
-    model="gpt-5.6",
-    instructions=final_instructions,
-    input=ai_input
-)
-
-    # Сохраняем ответ Лии в историю тренировки
-if context.user_data.get("mode") == "💬 Тренировка диалога":
-        context.user_data["training_history"].append(
-            "Лия: " + response.output_text
+    
+    if context.user_data.get("mode") == "💬 Тренировка диалога":
+        final_instructions += (
+            "\n\nНАСТРОЙКИ ТЕКУЩЕЙ ТРЕНИРОВКИ:\n"
+            + training_level_prompt
+            + "\nСтрого соблюдай выбранный уровень сложности до конца тренировки."
         )
-
-await update.message.reply_text(
-    response.output_text,
-        reply_markup=MAIN_KEYBOARD
+    
+    response = client.responses.create(
+        model="gpt-5.6",
+        instructions=final_instructions,
+        input=ai_input
+    )
+    
+        # Сохраняем ответ Лии в историю тренировки
+    if context.user_data.get("mode") == "💬 Тренировка диалога":
+            context.user_data["training_history"].append(
+                "Лия: " + response.output_text
+            )
+    
+    await update.message.reply_text(
+        response.output_text,
+            reply_markup=MAIN_KEYBOARD
 )
    
 class HealthHandler(BaseHTTPRequestHandler):
