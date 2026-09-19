@@ -274,15 +274,15 @@ response = client.responses.create(
 )
 
     # Сохраняем ответ Лии в историю тренировки
-    if context.user_data.get("mode") == "💬 Тренировка диалога":
+if context.user_data.get("mode") == "💬 Тренировка диалога":
         context.user_data["training_history"].append(
             "Лия: " + response.output_text
         )
 
-    await update.message.reply_text(
+await update.message.reply_text(
     response.output_text,
         reply_markup=MAIN_KEYBOARD
-    )
+)
    
 class HealthHandler(BaseHTTPRequestHandler):
     def do_GET(self):
