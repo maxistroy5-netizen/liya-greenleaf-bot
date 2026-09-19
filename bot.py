@@ -73,7 +73,21 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_text = update.message.text
+    if user_text == "💬 Тренировка диалога":
+        context.user_data["awaiting_training_level"] = True
+        await update.message.reply_text(
+            "Выбери уровень сложности тренировки:",
+            reply_markup=TRAINING_LEVEL_KEYBOARD
+        )
+        return
 
+    if user_text == "⬅️ Главное меню":
+        context.user_data.pop("awaiting_training_level", None)
+        await update.message.reply_text(
+            "Главное меню:",
+            reply_markup=MAIN_KEYBOARD
+        )
+        return
     modes = {
         "🌱 Я новичок": (
             "Пользователь выбрал режим «Я новичок». "
