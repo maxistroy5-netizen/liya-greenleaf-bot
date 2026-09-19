@@ -166,7 +166,7 @@ if user_text in modes:
         if user_text == "💬 Тренировка диалога":
             context.user_data["training_history"] = []
         ai_input = modes[user_text]
-   else:
+else:
         # Получаем ранее выбранный режим
         active_mode = context.user_data.get("mode")
 
