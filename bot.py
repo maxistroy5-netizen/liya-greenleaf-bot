@@ -19,6 +19,15 @@ MAIN_KEYBOARD = ReplyKeyboardMarkup(
     resize_keyboard=True,
     is_persistent=True,
 )
+TRAINING_LEVEL_KEYBOARD = ReplyKeyboardMarkup(
+    [
+        ["🟢 Лёгкий", "🟡 Средний"],
+        ["🔴 Сложный"],
+        ["⬅️ Главное меню"],
+    ],
+    resize_keyboard=True,
+    is_persistent=True,
+)
 with open("knowledge.txt", "r", encoding="utf-8") as file:
     KNOWLEDGE = file.read()
 LIYA_PROMPT = """
