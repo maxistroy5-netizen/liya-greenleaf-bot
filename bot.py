@@ -14,6 +14,7 @@ MAIN_KEYBOARD = ReplyKeyboardMarkup(
         ["🌱 Я новичок", "📊 Маркетинг-план"],
         ["🤝 Подготовка к встрече", "💬 Тренировка диалога"],
         ["🎓 Проверить знания", "✍️ Задать вопрос"],
+        ["🔍 Разбор тренировки"],
     ],
     resize_keyboard=True,
     is_persistent=True,
@@ -123,24 +124,63 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Пользователь выбрал режим «Задать вопрос». "
             "Предложи ему написать любой вопрос о Greenleaf или маркетинг-плане. "
             "Не придумывай отсутствующие в CURRENT данные."
-        ),
-    }
+       ),
 
-        # Если пользователь нажал кнопку режима — запоминаем этот режим
-    if user_text in modes:
-        context.user_data["mode"] = user_text
-        ai_input = modes[user_text]
+       "🔍 Разбор тренировки": (
+           "Пользователь завершает тренировочный диалог и хочет получить разбор. "
+           "Сразу выйди из роли потенциального партнёра или клиента. "
+           "Проанализируй тренировочный диалог, который был перед этим. "
+           "Не продолжай играть собеседника. "
+           "Начни ответ с заголовка «🔍 РАЗБОР ТРЕНИРОВКИ». "
+           "Сначала укажи, что пользователь сделал хорошо. "
+           "Затем укажи, где собеседник мог потерять интерес или доверие. "
+           "Отдельно укажи фактические ошибки о Greenleaf, если они были. "
+           "После этого предложи, как можно было ответить проще, естественнее и убедительнее. "
+           "Дай один улучшенный пример ответа пользователя. "
+           "Не придумывай факты, цены, бонусы или правила Greenleaf, которых нет в CURRENT-базе. "
+           "В конце спроси: «Продолжаем этот диалог или попробуем нового собеседника?»"
+      ),
+}
+
+        # История тренировочного диалога
+if "training_history" not in context.user_data:
+    context.user_data["training_history"] = []
+
+        # Если пользователь нажал кнопку режима
+if user_text in modes:
+    if user_text == "🔍 Разбор тренировки":
+        # Разбираем предыдущую тренировку и выходим из активного режима
+        context.user_data.pop("mode", None)
+        history = context.user_data.get("training_history", [])
+
+        ai_input = (
+            modes[user_text]
+            + "\n\nВот полный диалог последней тренировки:\n"
+            + "\n".join(history)
+        )
+
+        context.user_data["training_history"] = []
     else:
+        # Остальные режимы запоминаем
+        context.user_data["mode"] = user_text
+        if user_text == "💬 Тренировка диалога":
+            context.user_data["training_history"] = []
+        ai_input = modes[user_text]
+   else:
         # Получаем ранее выбранный режим
         active_mode = context.user_data.get("mode")
 
-        if active_mode and active_mode in modes:
-            ai_input = (
-                modes[active_mode]
-                + "\n\nПользователь продолжает текущий режим."
-                + "\nЕго новая реплика: "
-                + user_text
-            )
+if active_mode and active_mode in modes:
+    if active_mode == "💬 Тренировка диалога":
+        context.user_data["training_history"].append(
+            "Пользователь: " + user_text
+        )
+    ai_input = (
+         modes[active_mode]
+         + "\n\nПользователь продолжает текущий режим."
+         + "\nЕго новая реплика: "
+         + user_text
+    )
         else:
             ai_input = user_text
 
@@ -149,7 +189,10 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         instructions=LIYA_PROMPT + "\n\nБАЗА ЗНАНИЙ GREENLEAF:\n" + KNOWLEDGE,
         input=ai_input
     )
-
+if context.user_data.get("mode") == "💬 Тренировка диалога":
+    context.user_data["training_history"].append(
+        "Лия: " + response.output_text
+    )
     await update.message.reply_text(
         response.output_text,
         reply_markup=MAIN_KEYBOARD
