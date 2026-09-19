@@ -142,16 +142,18 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
       ),
 }
 
-        # История тренировочного диалога
-if "training_history" not in context.user_data:
-    context.user_data["training_history"] = []
+         # История тренировочного диалога
+    if "training_history" not in context.user_data:
+        context.user_data["training_history"] = []
 
-        # Если пользователь нажал кнопку режима
+    # Если пользователь нажал кнопку режима
     if user_text in modes:
         if user_text == "🔍 Разбор тренировки":
-            # Разбираем предыдущую тренировку и выходим из активного режима
-            context.user_data.pop("mode", None)
+            # Берём историю завершённой тренировки
             history = context.user_data.get("training_history", [])
+
+            # Выходим из активного режима тренировки
+            context.user_data.pop("mode", None)
 
             ai_input = (
                 modes[user_text]
@@ -159,49 +161,54 @@ if "training_history" not in context.user_data:
                 + "\n".join(history)
             )
 
+            # После передачи на разбор очищаем историю
             context.user_data["training_history"] = []
 
         else:
-            # Остальные режимы запоминаем
+            # Запоминаем выбранный режим
             context.user_data["mode"] = user_text
 
+            # Новая тренировка = новая история
             if user_text == "💬 Тренировка диалога":
                 context.user_data["training_history"] = []
 
             ai_input = modes[user_text]
 
     else:
-        # Получаем ранее выбранный режим
+        # Пользователь продолжает ранее выбранный режим
         active_mode = context.user_data.get("mode")
-        
-if active_mode and active_mode in modes:
-    if active_mode == "💬 Тренировка диалога":
-        context.user_data["training_history"].append(
-            "Пользователь: " + user_text
-        )
-    ai_input = (
-         modes[active_mode]
-         + "\n\nПользователь продолжает текущий режим."
-         + "\nЕго новая реплика: "
-         + user_text
-    )
-else:
-    ai_input = user_text
+
+        if active_mode and active_mode in modes:
+            if active_mode == "💬 Тренировка диалога":
+                context.user_data["training_history"].append(
+                    "Пользователь: " + user_text
+                )
+
+            ai_input = (
+                modes[active_mode]
+                + "\n\nПользователь продолжает текущий режим."
+                + "\nЕго новая реплика: "
+                + user_text
+            )
+        else:
+            ai_input = user_text
 
     response = client.responses.create(
         model="gpt-5.6",
         instructions=LIYA_PROMPT + "\n\nБАЗА ЗНАНИЙ GREENLEAF:\n" + KNOWLEDGE,
         input=ai_input
     )
-if context.user_data.get("mode") == "💬 Тренировка диалога":
-    context.user_data["training_history"].append(
-        "Лия: " + response.output_text
-    )
+
+    # Сохраняем ответ Лии в историю тренировки
+    if context.user_data.get("mode") == "💬 Тренировка диалога":
+        context.user_data["training_history"].append(
+            "Лия: " + response.output_text
+        )
+
     await update.message.reply_text(
         response.output_text,
         reply_markup=MAIN_KEYBOARD
     )
-
    
 class HealthHandler(BaseHTTPRequestHandler):
     def do_GET(self):
