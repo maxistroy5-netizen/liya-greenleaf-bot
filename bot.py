@@ -164,7 +164,43 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
            "В конце спроси: «Продолжаем этот диалог или попробуем нового собеседника?»"
       ),
 }
+    if user_text in ["🟢 Лёгкий", "🟡 Средний", "🔴 Сложный"]:
+        context.user_data["mode"] = "💬 Тренировка диалога"
+        context.user_data["training_history"] = []
+        context.user_data["awaiting_training_level"] = False
 
+        training_levels = {
+            "🟢 Лёгкий": (
+                "УРОВЕНЬ: ЛЁГКИЙ. "
+                "Играй доброжелательного потенциального партнёра. "
+                "Ты открыт к разговору и тебе интересно узнать больше. "
+                "Задавай простые вопросы. Возражения мягкие. "
+                "Дай новичку возможность спокойно потренироваться."
+            ),
+            "🟡 Средний": (
+                "УРОВЕНЬ: СРЕДНИЙ. "
+                "Играй потенциального партнёра, который сомневается. "
+                "Задавай уточняющие вопросы и реальные возражения: "
+                "дорого, нет времени, надо подумать, сетевой бизнес вызывает сомнения. "
+                "Не соглашайся слишком быстро."
+            ),
+            "🔴 Сложный": (
+                "УРОВЕНЬ: СЛОЖНЫЙ. "
+                "Играй опытного и требовательного скептика. "
+                "Задавай конкретные и неудобные вопросы, проси подтверждать утверждения, "
+                "замечай слишком общие обещания и противоречия. "
+                "Не будь грубым, но не позволяй легко себя убедить."
+            ),
+        }
+
+        context.user_data["training_level_prompt"] = training_levels[user_text]
+
+        await update.message.reply_text(
+            f"{user_text} уровень выбран.\n\n"
+            "Начинаем тренировку. Напиши свою первую реплику потенциальному партнёру.",
+            reply_markup=MAIN_KEYBOARD
+        )
+        return
          # История тренировочного диалога
     if "training_history" not in context.user_data:
         context.user_data["training_history"] = []
@@ -216,11 +252,26 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             ai_input = user_text
 
-    response = client.responses.create(
-        model="gpt-5.6",
-        instructions=LIYA_PROMPT + "\n\nБАЗА ЗНАНИЙ GREENLEAF:\n" + KNOWLEDGE,
-        input=ai_input
+training_level_prompt = context.user_data.get("training_level_prompt", "")
+
+final_instructions = (
+    LIYA_PROMPT
+    + "\n\nБАЗА ЗНАНИЙ GREENLEAF:\n"
+    + KNOWLEDGE
+)
+
+if context.user_data.get("mode") == "💬 Тренировка диалога":
+    final_instructions += (
+        "\n\nНАСТРОЙКИ ТЕКУЩЕЙ ТРЕНИРОВКИ:\n"
+        + training_level_prompt
+        + "\nСтрого соблюдай выбранный уровень сложности до конца тренировки."
     )
+
+response = client.responses.create(
+    model="gpt-5.6",
+    instructions=final_instructions,
+    input=ai_input
+)
 
     # Сохраняем ответ Лии в историю тренировки
     if context.user_data.get("mode") == "💬 Тренировка диалога":
