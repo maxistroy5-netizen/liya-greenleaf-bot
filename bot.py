@@ -147,26 +147,32 @@ if "training_history" not in context.user_data:
     context.user_data["training_history"] = []
 
         # Если пользователь нажал кнопку режима
-if user_text in modes:
-    if user_text == "🔍 Разбор тренировки":
-        # Разбираем предыдущую тренировку и выходим из активного режима
-        context.user_data.pop("mode", None)
-        history = context.user_data.get("training_history", [])
+    if user_text in modes:
+        if user_text == "🔍 Разбор тренировки":
+            # Разбираем предыдущую тренировку и выходим из активного режима
+            context.user_data.pop("mode", None)
+            history = context.user_data.get("training_history", [])
 
-        ai_input = (
-            modes[user_text]
-            + "\n\nВот полный диалог последней тренировки:\n"
-            + "\n".join(history)
-        )
+            ai_input = (
+                modes[user_text]
+                + "\n\nВот полный диалог последней тренировки:\n"
+                + "\n".join(history)
+            )
 
-        context.user_data["training_history"] = []
-    else:
-        # Остальные режимы запоминаем
-        context.user_data["mode"] = user_text
-        if user_text == "💬 Тренировка диалога":
             context.user_data["training_history"] = []
-        ai_input = modes[user_text]
-else:
+
+        else:
+            # Остальные режимы запоминаем
+            context.user_data["mode"] = user_text
+
+            if user_text == "💬 Тренировка диалога":
+                context.user_data["training_history"] = []
+
+            ai_input = modes[user_text]
+
+    else:
+        # Получаем ранее выбранный режим
+        active_mode = context.user_data.get("mode")
         # Получаем ранее выбранный режим
         active_mode = context.user_data.get("mode")
 
