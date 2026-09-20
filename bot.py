@@ -30,6 +30,9 @@ TRAINING_LEVEL_KEYBOARD = ReplyKeyboardMarkup(
 )
 with open("knowledge.txt", "r", encoding="utf-8") as file:
     KNOWLEDGE = file.read()
+
+with open("practice_partner.txt", "r", encoding="utf-8") as file:
+    PRACTICE_KNOWLEDGE = file.read()
 LIYA_PROMPT = """
 Правила работы с базой знаний:
 — Используй базу знаний GREENLEAF ниже как основной источник для вопросов о маркетинг-плане.
@@ -57,11 +60,17 @@ LIYA_PROMPT = """
 7. PV — это баллы объёма, а не сам заработок.
 8. Если для точного расчёта или ответа недостаточно данных, прямо скажи, каких данных не хватает.
 9. Общайся доброжелательно, уверенно и профессионально.
+10. Всегда учитывай историю текущего диалога, переданную в запросе.
+11. Если ты задала вопрос с вариантами А/Б/В/Г, следующий короткий ответ пользователя (например: «А», «б», «Б)», «в.») сначала трактуй как ответ на последний заданный вопрос.
+12. Принимай также текстовый эквивалент варианта ответа. Не проси повторить предыдущий вопрос, если он присутствует в истории текущего диалога.
+13. После ответа ученика сначала проверь его. Если ответ верный — коротко объясни почему и продолжай обучение. Если неверный — объясни ошибку и не переходи дальше, пока ученик не понял тему.
 
 Тебя зовут Лия.
 """
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # /start начинает новую учебную сессию.
+    context.user_data["dialog_history"] = []
     await update.message.reply_text(
         "💚 Привет! Я Лия — персональный AI-тренер Greenleaf.\n\n"
         "Я помогу разобраться в маркетинг-плане, "
@@ -83,6 +92,8 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if user_text == "⬅️ Главное меню":
         context.user_data.pop("awaiting_training_level", None)
+        context.user_data.pop("mode", None)
+        context.user_data["dialog_history"] = []
         await update.message.reply_text(
             "Главное меню:",
             reply_markup=MAIN_KEYBOARD
@@ -205,6 +216,11 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if "training_history" not in context.user_data:
         context.user_data["training_history"] = []
 
+    # Общая история текущего режима нужна для последовательного обучения:
+    # Лия должна видеть собственный предыдущий вопрос и ответ пользователя.
+    if "dialog_history" not in context.user_data:
+        context.user_data["dialog_history"] = []
+
     # Если пользователь нажал кнопку режима
     if user_text in modes:
         if user_text == "🔍 Разбор тренировки":
@@ -224,8 +240,10 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.user_data["training_history"] = []
 
         else:
-            # Запоминаем выбранный режим
+            # Запоминаем выбранный режим. Выбор нового режима начинает
+            # новый самостоятельный диалог и очищает историю старого режима.
             context.user_data["mode"] = user_text
+            context.user_data["dialog_history"] = []
 
             # Новая тренировка = новая история
             if user_text == "💬 Тренировка диалога":
@@ -260,6 +278,23 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         + KNOWLEDGE
     )
     
+    practice_modes = {
+        "🤝 Подготовка к встрече",
+        "💬 Тренировка диалога",
+        "🔍 Разбор тренировки",
+    }
+    active_mode_for_knowledge = context.user_data.get("mode")
+    if user_text in practice_modes:
+        active_mode_for_knowledge = user_text
+
+    if active_mode_for_knowledge in practice_modes:
+        final_instructions += (
+            "\n\nБАЗА ПРАКТИЧЕСКИХ НАВЫКОВ ПАРТНЁРА:\n"
+            + PRACTICE_KNOWLEDGE
+            + "\n\nКРИТИЧЕСКИ ВАЖНО: эта база не является маркетинг-планом. "
+              "Не используй её как источник PV, статусов, бонусов, процентов, формул или расчётов."
+        )
+
     if context.user_data.get("mode") == "💬 Тренировка диалога":
         final_instructions += (
             "\n\nНАСТРОЙКИ ТЕКУЩЕЙ ТРЕНИРОВКИ:\n"
@@ -267,11 +302,34 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
             + "\nСтрого соблюдай выбранный уровень сложности до конца тренировки."
         )
     
+    # Передаём модели последние реплики текущего диалога.
+    # Это позволяет распознавать ответы вроде «Б» на вопрос, который Лия
+    # задала в предыдущем сообщении. Ограничиваем историю 20 репликами.
+    dialog_history = context.user_data.get("dialog_history", [])[-20:]
+    history_text = "\n".join(dialog_history)
+
+    if history_text:
+        model_input = (
+            "ИСТОРИЯ ТЕКУЩЕГО ДИАЛОГА (от старых сообщений к новым):\n"
+            + history_text
+            + "\n\nТЕКУЩАЯ РЕПЛИКА/ИНСТРУКЦИЯ:\n"
+            + ai_input
+        )
+    else:
+        model_input = ai_input
+
     response = client.responses.create(
         model="gpt-5.6",
         instructions=final_instructions,
-        input=ai_input
+        input=model_input
     )
+
+    # Сохраняем текущий обмен после получения ответа. Не сохраняем нажатия
+    # служебных кнопок как отдельные пользовательские реплики: ai_input уже
+    # содержит инструкцию выбранного режима.
+    context.user_data["dialog_history"].append("Пользователь: " + user_text)
+    context.user_data["dialog_history"].append("Лия: " + response.output_text)
+    context.user_data["dialog_history"] = context.user_data["dialog_history"][-20:]
     
         # Сохраняем ответ Лии в историю тренировки
     if context.user_data.get("mode") == "💬 Тренировка диалога":
