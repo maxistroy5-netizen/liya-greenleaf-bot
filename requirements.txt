@@ -1,2 +1,5 @@
 python-telegram-bot==22.5
 openai
+reportlab
+qrcode[pil]
+Pillow
