@@ -11,7 +11,7 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas
 
-ECOSYSTEM_URL = "https://t.me/addlist/JxquFZkrHw4yYTMy"
+ECOSYSTEM_URL = "https://t.me/addlist/OlNIwOt0mnI2ZmI6"
 BRAND_NAME = "GREENLEAF Leaders | Москва"
 CLUB_NAME = "GREENRU💚CLUB"
 BRAND_LOGO_FILE = "ChatGPT Image 17 сент. 2026 г._ 19_12_45.png"
@@ -128,16 +128,19 @@ def generate_business_card(data,photo_path=None,output_path=None):
     c.setFillColor(GREEN); c.setFont(FONT_BOLD,12); c.drawString(48,1000,"PEOPLE  |  PRODUCTS  |  OPPORTUNITIES")
     c.setFont(FONT,11); c.drawString(48,980,"A BETTER TOMORROW")
 
-    # QR is aligned with the partner photo and carries the only full-colour logo.
     qr=qrcode.QRCode(version=None,box_size=7,border=2); qr.add_data(ECOSYSTEM_URL); qr.make(fit=True)
     qr_img=qr.make_image(fill_color="black",back_color="white").convert("RGB")
     bio=io.BytesIO(); qr_img.save(bio,format="PNG"); bio.seek(0)
-    c.setFillColor(colors.white); c.roundRect(475,965,205,260,18,fill=1,stroke=0)
-    c.drawImage(ImageReader(bio),493,1030,169,169)
-    _draw_qr_logo(c,577.5,1114.5,54)
-    c.setFillColor(GREEN); c.setFont(FONT_BOLD,14); c.drawCentredString(577,1005,CLUB_NAME)
-    c.setFont(FONT,10); c.drawCentredString(577,984,"СКАНИРУЙ QR-КОД")
-    c.linkURL(ECOSYSTEM_URL,(475,965,680,1225),relative=0)
+    c.setFillColor(colors.white); c.roundRect(475,945,205,280,18,fill=1,stroke=0)
+    c.drawImage(ImageReader(bio),493,1035,169,169)
+    _draw_qr_logo(c,577.5,1119.5,54)
+    c.setFillColor(GREEN); c.setFont(FONT_BOLD,14); c.drawCentredString(577,1008,CLUB_NAME)
+    c.setFont(FONT,10); c.drawCentredString(577,988,"СКАНИРУЙ QR-КОД")
+    c.setFillColor(colors.HexColor("#0A6B47")); c.setFont(FONT_BOLD,10)
+    c.drawCentredString(577,965,"НАЖМИ, ЧТОБЫ ОТКРЫТЬ")
+    c.setStrokeColor(colors.HexColor("#0A6B47")); c.setLineWidth(0.7); c.line(515,962,639,962)
+    c.linkURL(ECOSYSTEM_URL,(495,950,660,978),relative=0)
+    c.linkURL(ECOSYSTEM_URL,(475,1030,680,1225),relative=0)
 
     name=(data.get("name") or "Партнёр Greenleaf").strip()
     c.setFillColor(DARK); _fit(c,name,48,895,400,39,FONT_BOLD,20)
