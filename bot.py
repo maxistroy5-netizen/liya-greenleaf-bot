@@ -23,6 +23,31 @@ TRAINING_LEVEL_KEYBOARD = ReplyKeyboardMarkup([
     ["🟢 Лёгкий", "🟡 Средний"], ["🔴 Сложный"], ["⬅️ Главное меню"]
 ], resize_keyboard=True, is_persistent=True)
 
+TOOLS_KEYBOARD = ReplyKeyboardMarkup([
+    ["📱 Создать электронную визитку"],
+    ["🤝 3 шага приглашения партнёра"],
+    ["⬅️ Главное меню"],
+], resize_keyboard=True, is_persistent=True)
+
+CARD_CONFIRM_KEYBOARD = ReplyKeyboardMarkup([
+    ["✅ Всё верно", "✏️ Заполнить заново"],
+    ["⬅️ Главное меню"],
+], resize_keyboard=True, is_persistent=True)
+
+CARD_FIELDS = [
+    ("name", "1/8. Напиши имя и фамилию, как они должны выглядеть на визитке."),
+    ("phone", "2/8. Укажи номер телефона."),
+    ("telegram", "3/8. Укажи Telegram: @username, номер или ссылку."),
+    ("whatsapp", "4/8. Укажи WhatsApp: номер или ссылку."),
+    ("max", "5/8. Укажи MAX: номер, имя пользователя или ссылку."),
+    ("email", "6/8. Укажи e-mail."),
+    ("instagram", "7/8. Укажи Instagram: @username или ссылку."),
+    ("photo", "8/8. Теперь отправь своё фото отдельным сообщением. Если пока хочешь только проверить анкету — напиши «пропустить»."),
+]
+
+ECOSYSTEM_URL = "https://t.me/addlist/JxquFZkrHw4yYTMy"
+BRAND_NAME = "GREENLEAF Leaders | Москва"
+
 with open("knowledge.txt", "r", encoding="utf-8") as f:
     KNOWLEDGE = f.read()
 with open("practice_partner.txt", "r", encoding="utf-8") as f:
@@ -59,7 +84,6 @@ MODES = {
     "🎓 Проверить знания": "Проверяй знания маркетинг-плана только по CURRENT. Задавай по одному вопросу; после ответа объясняй ошибку, если она есть, и только потом продолжай.",
     "✍️ Задать вопрос": "Предложи написать любой вопрос о Greenleaf или маркетинг-плане. Для корпоративных динамических фактов при необходимости используй LIVE; маркетинг-план не проверяй через интернет.",
     "🔍 Разбор тренировки": "Выйди из роли. Начни с «🔍 РАЗБОР ТРЕНИРОВКИ». Укажи, что получилось хорошо, где мог потеряться интерес/доверие, фактические ошибки, один улучшенный пример ответа. В конце спроси: «Продолжаем этот диалог или попробуем нового собеседника?»",
-    "🧰 Инструменты": "Коротко сообщи, что здесь готовятся персональные инструменты партнёра: «📱 Создать электронную визитку» и «🤝 3 шага приглашения партнёра». Не утверждай, что генерация уже доступна: модуль подключается."
 }
 
 LEVELS = {
@@ -86,7 +110,6 @@ def clean_url(url: str) -> str:
 
 def dedupe_urls(text: str) -> str:
     seen = set()
-
     def replace(match):
         url = clean_url(match.group(0))
         key = url.rstrip("/").lower()
@@ -94,7 +117,6 @@ def dedupe_urls(text: str) -> str:
             return ""
         seen.add(key)
         return url
-
     text = URL_RE.sub(replace, text)
     lines = []
     for line in text.splitlines():
@@ -127,12 +149,41 @@ def polish_answer(answer: str, user_text: str) -> str:
     return answer.strip()
 
 
+def card_summary(data: dict) -> str:
+    photo_status = "получено" if data.get("photo") == "received" else "будет добавлено позже"
+    return (
+        "📱 Проверь данные для электронной визитки:\n\n"
+        f"Имя: {data.get('name', '')}\n"
+        f"Телефон: {data.get('phone', '')}\n"
+        f"Telegram: {data.get('telegram', '')}\n"
+        f"WhatsApp: {data.get('whatsapp', '')}\n"
+        f"MAX: {data.get('max', '')}\n"
+        f"E-mail: {data.get('email', '')}\n"
+        f"Instagram: {data.get('instagram', '')}\n"
+        f"Фото: {photo_status}\n\n"
+        f"Бренд: {BRAND_NAME}\n"
+        f"GREENLEAF CLUB.RU: {ECOSYSTEM_URL}\n\n"
+        "Если всё верно — нажми «✅ Всё верно»."
+    )
+
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
     context.user_data["dialog_history"] = []
     await update.message.reply_text(
         "💚 Привет! Я Лия — персональный AI-тренер Greenleaf.\n\nЯ помогу разобраться в маркетинг-плане, подготовиться к встрече, потренировать диалог, проверить знания и использовать рабочие инструменты.",
         reply_markup=MAIN_KEYBOARD)
+
+
+async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if context.user_data.get("card_step") != "photo":
+        await update.message.reply_text("Фото получила. Чтобы использовать его для визитки, открой 🧰 Инструменты → 📱 Создать электронную визитку.", reply_markup=MAIN_KEYBOARD)
+        return
+    photos = update.message.photo
+    context.user_data.setdefault("card_data", {})["photo"] = "received"
+    context.user_data["card_photo_file_id"] = photos[-1].file_id
+    context.user_data["card_step"] = "confirm"
+    await update.message.reply_text(card_summary(context.user_data["card_data"]), reply_markup=CARD_CONFIRM_KEYBOARD)
 
 
 async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -144,6 +195,67 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data.clear()
         context.user_data["dialog_history"] = []
         await update.message.reply_text("Главное меню:", reply_markup=MAIN_KEYBOARD)
+        return
+
+    if user_text == "🧰 Инструменты":
+        context.user_data.pop("card_step", None)
+        await update.message.reply_text(
+            "🧰 ИНСТРУМЕНТЫ\n\nЗдесь мы собираем готовые рабочие материалы нашей структуры. Выбери, что нужно:",
+            reply_markup=TOOLS_KEYBOARD)
+        return
+
+    if user_text == "📱 Создать электронную визитку":
+        context.user_data["card_data"] = {}
+        context.user_data["card_index"] = 0
+        context.user_data["card_step"] = CARD_FIELDS[0][0]
+        await update.message.reply_text(
+            "📱 ЭЛЕКТРОННАЯ ВИЗИТКА\n\nЯ соберу данные пошагово. В готовом материале будут обязательны бренд нашей структуры и единый QR GREENLEAF CLUB.RU.\n\n" + CARD_FIELDS[0][1],
+            reply_markup=ReplyKeyboardMarkup([["⬅️ Главное меню"]], resize_keyboard=True, is_persistent=True))
+        return
+
+    if user_text == "✏️ Заполнить заново":
+        context.user_data["card_data"] = {}
+        context.user_data["card_index"] = 0
+        context.user_data["card_step"] = CARD_FIELDS[0][0]
+        await update.message.reply_text(CARD_FIELDS[0][1])
+        return
+
+    if user_text == "✅ Всё верно" and context.user_data.get("card_step") == "confirm":
+        context.user_data["card_step"] = "ready"
+        await update.message.reply_text(
+            "✅ Анкета сохранена в текущем диалоге.\n\nСледующий этап — автоматическая сборка готовой брендированной электронной визитки по нашему шаблону. Данные повторно вводить не придётся.",
+            reply_markup=TOOLS_KEYBOARD)
+        return
+
+    card_step = context.user_data.get("card_step")
+    if card_step and card_step not in {"confirm", "ready", "photo"}:
+        index = context.user_data.get("card_index", 0)
+        field_name, _ = CARD_FIELDS[index]
+        context.user_data.setdefault("card_data", {})[field_name] = user_text.strip()
+        index += 1
+        context.user_data["card_index"] = index
+        next_field, prompt = CARD_FIELDS[index]
+        context.user_data["card_step"] = next_field
+        await update.message.reply_text(prompt)
+        return
+
+    if card_step == "photo":
+        if user_text.strip().lower() in {"пропустить", "пропускаю", "нет фото"}:
+            context.user_data.setdefault("card_data", {})["photo"] = "skipped"
+            context.user_data["card_step"] = "confirm"
+            await update.message.reply_text(card_summary(context.user_data["card_data"]), reply_markup=CARD_CONFIRM_KEYBOARD)
+        else:
+            await update.message.reply_text("Отправь фотографию как фото в Telegram или напиши «пропустить».")
+        return
+
+    if user_text == "🤝 3 шага приглашения партнёра":
+        await update.message.reply_text(
+            "🤝 3 ШАГА ПРИГЛАШЕНИЯ\n\n"
+            "1️⃣ Первое касание — электронная визитка.\nОтправь человеку персональную визитку и предложи спокойно познакомиться с компанией, продукцией и возможностями.\n\n"
+            "2️⃣ Второе касание — мягкое возвращение в диалог через 1–2 дня.\nСпроси, что заинтересовало больше: компания, продукция или возможности развития, и появились ли вопросы.\n\n"
+            "3️⃣ Третье касание — приглашение на субботний онлайн-эфир.\nУкажи актуальную дату, время 10:00 по Москве и ссылку Zoom.\n\n"
+            "Материалы этого инструмента брендируются нашей структурой. Следующим этапом подключим самостоятельное заполнение имени получателя, даты и ссылки Zoom.",
+            reply_markup=TOOLS_KEYBOARD)
         return
 
     if user_text == "💬 Тренировка диалога":
@@ -219,7 +331,6 @@ class HealthHandler(BaseHTTPRequestHandler):
         self.send_header("Content-type", "text/plain")
         self.end_headers()
         self.wfile.write(b"Liya bot is running")
-
     def log_message(self, format, *args):
         return
 
@@ -233,6 +344,7 @@ def main():
     threading.Thread(target=run_health_server, daemon=True).start()
     app = Application.builder().token(TELEGRAM_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(MessageHandler(filters.PHOTO, photo_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, chat))
     app.run_polling()
 
