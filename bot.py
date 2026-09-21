@@ -1,12 +1,16 @@
 import os
 import re
+import tempfile
 import threading
 from datetime import date
 from urllib.parse import urlsplit, urlunsplit
 from http.server import BaseHTTPRequestHandler, HTTPServer
+
 from openai import OpenAI
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
+
+from card_generator import generate_business_card
 
 TELEGRAM_TOKEN = os.environ["TELEGRAM_TOKEN"]
 OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
@@ -65,14 +69,14 @@ LIYA_PROMPT = """
 4. LIVE НИКОГДА не меняет PV, статусы, бонусы, проценты, квалификации, формулы и расчёты маркетинг-плана: они берутся только из CURRENT.
 5. Если LIVE реально использован и дал надёжный ответ, в самом конце поставь отдельной строкой: «🌐 По актуальным данным официальных источников Greenleaf на ДД.ММ.ГГГГ.» Используй фактическую дату проверки.
 6. Если LIVE не использовался или не дал надёжного ответа, не добавляй эту подпись и не утверждай, что проверка состоялась.
-7. ОБЫЧНЫЙ ВОПРОС: дай чистый ответ без URL, без Markdown-ссылок, без технических параметров и без перечня источников. Даже если web_search вернул ссылки, не вставляй их в текст автоматически.
-8. ИСТОЧНИК ПО ПРОСЬБЕ: только если пользователь прямо просит «источник», «ссылку», «где посмотреть», «откуда информация» или аналогичное — дай 1–3 наиболее конкретные официальные ссылки. Каждую ссылку показывай только ОДИН раз во всём ответе. Название источника включай в предложение с фактом; не добавляй отдельную строку с названием источника после URL. НИКОГДА не пиши домен greenleaf-global.com, global.green-leaf.shop или другой домен как подпись перед URL. Никогда не добавляй utm_source, ysclid и другие рекламные/технические параметры.
-9. Если пользователь просит источник конкретного факта, дай короткий ответ в формате: факт и название официального источника → одна чистая прямая ссылка → при LIVE-проверке финальная строка с датой. Не повторяй название источника отдельной строкой после ссылки. Не добавляй лишние документы, если один источник уже подтверждает факт. Если официальные источники дают разные цифры или формулировки, спокойно укажи расхождение и приведи по одной ссылке на каждый действительно нужный источник; не выбирай одну цифру без основания.
-10. Не используй Markdown со звёздочками (**текст**) и подчёркиваниями. Для акцента используй короткие заголовки, переносы строк и эмодзи.
+7. ОБЫЧНЫЙ ВОПРОС: дай чистый ответ без URL, без Markdown-ссылок, без технических параметров и без перечня источников.
+8. ИСТОЧНИК ПО ПРОСЬБЕ: только если пользователь прямо просит источник, ссылку, где посмотреть или откуда информация — дай 1–3 наиболее конкретные официальные ссылки. Каждую ссылку показывай только один раз. Не добавляй utm_source, ysclid и другие технические параметры.
+9. Если официальные источники дают разные цифры или формулировки, спокойно укажи расхождение; не выбирай одну цифру без основания.
+10. Не используй Markdown со звёздочками. Для акцента используй короткие заголовки, переносы строк и эмодзи.
 
 ОБУЧЕНИЕ:
 11. Новичка обучай маленькими уроками; после важного понятия задавай один вопрос и проверяй понимание. При ошибке объясни её и не переходи дальше, пока тема не понята.
-12. Всегда учитывай историю текущего диалога. Если ты задала вопрос А/Б/В/Г, короткий ответ «А», «б», «Б)», «в.» трактуй как ответ на последний вопрос. Принимай и текстовый эквивалент варианта.
+12. Всегда учитывай историю текущего диалога. Короткий ответ А/Б/В/Г трактуй как ответ на последний вопрос с вариантами.
 13. Не перегружай человека информацией. Если данных недостаточно — прямо скажи, чего не хватает.
 """
 
@@ -89,60 +93,44 @@ MODES = {
 LEVELS = {
     "🟢 Лёгкий": "УРОВЕНЬ ЛЁГКИЙ: доброжелательный собеседник, простой интерес, мягкие возражения.",
     "🟡 Средний": "УРОВЕНЬ СРЕДНИЙ: сомневайся, уточняй; возражения: дорого, нет времени, надо подумать, сомнения к сетевому бизнесу.",
-    "🔴 Сложный": "УРОВЕНЬ СЛОЖНЫЙ: опытный требовательный скептик, конкретные неудобные вопросы, проси подтверждать утверждения; не груби."
+    "🔴 Сложный": "УРОВЕНЬ СЛОЖНЫЙ: опытный требовательный скептик, конкретные неудобные вопросы, проси подтверждать утверждения; не груби.",
 }
 
 SOURCE_REQUEST_RE = re.compile(r"(?i)\b(источник|источники|ссылк\w*|где\s+(?:это\s+)?посмотреть|откуда\s+(?:ты\s+)?(?:взял\w*|информац\w*)|подтвержден\w*|официальн\w+\s+источник)\b")
 URL_RE = re.compile(r"https?://[^\s)\]>]+")
 MARKDOWN_LINK_RE = re.compile(r"\[([^\]]+)\]\((https?://[^)]+)\)")
-BARE_SOURCE_DOMAIN_RE = re.compile(r"(?i)(?:https?://)?(?:www\.)?(?:greenleaf-global\.com|global\.green-leaf\.shop|prais-catalog\.famall-obs\.ru)\s*[:—-]\s*(?=https?://)")
-STANDALONE_SOURCE_LABEL_RE = re.compile(r"(?i)^(?:официальный\s+)?(?:корпоративная\s+страница|продуктовый\s+сайт|страница|сайт)\s+Greenleaf\s*[:—-]?\s*$")
 
 
 def clean_url(url: str) -> str:
     url = url.rstrip(".,;:!?")
     try:
-        parts = urlsplit(url)
-        return urlunsplit((parts.scheme, parts.netloc, parts.path, "", ""))
+        p = urlsplit(url)
+        return urlunsplit((p.scheme, p.netloc, p.path, "", ""))
     except Exception:
         return url.split("?", 1)[0]
 
 
 def dedupe_urls(text: str) -> str:
     seen = set()
-    def replace(match):
-        url = clean_url(match.group(0))
+    def repl(m):
+        url = clean_url(m.group(0))
         key = url.rstrip("/").lower()
         if key in seen:
             return ""
         seen.add(key)
         return url
-    text = URL_RE.sub(replace, text)
-    lines = []
-    for line in text.splitlines():
-        cleaned = re.sub(r"\s+", " ", line).strip()
-        cleaned = re.sub(r"[:—-]\s*$", "", cleaned).strip()
-        if STANDALONE_SOURCE_LABEL_RE.fullmatch(cleaned):
-            continue
-        if cleaned and not re.fullmatch(r"(?i)(официальный источник|источник|ссылка)", cleaned):
-            lines.append(cleaned)
-        elif not cleaned and lines and lines[-1] != "":
-            lines.append("")
-    return "\n".join(lines)
+    return URL_RE.sub(repl, text)
 
 
 def polish_answer(answer: str, user_text: str) -> str:
     wants_source = bool(SOURCE_REQUEST_RE.search(user_text or ""))
     if wants_source:
         answer = MARKDOWN_LINK_RE.sub(lambda m: f"{m.group(1)}: {clean_url(m.group(2))}", answer)
-        answer = BARE_SOURCE_DOMAIN_RE.sub("", answer)
         answer = URL_RE.sub(lambda m: clean_url(m.group(0)), answer)
         answer = dedupe_urls(answer)
     else:
         answer = MARKDOWN_LINK_RE.sub(lambda m: m.group(1), answer)
         answer = URL_RE.sub("", answer)
-        answer = re.sub(r"\(\s*\)", "", answer)
-        answer = re.sub(r"\[\s*\]", "", answer)
     answer = re.sub(r"\*\*([^*]+)\*\*", r"\1", answer)
     answer = re.sub(r"[ \t]+\n", "\n", answer)
     answer = re.sub(r"\n{3,}", "\n\n", answer)
@@ -153,18 +141,52 @@ def card_summary(data: dict) -> str:
     photo_status = "получено" if data.get("photo") == "received" else "будет добавлено позже"
     return (
         "📱 Проверь данные для электронной визитки:\n\n"
-        f"Имя: {data.get('name', '')}\n"
-        f"Телефон: {data.get('phone', '')}\n"
-        f"Telegram: {data.get('telegram', '')}\n"
-        f"WhatsApp: {data.get('whatsapp', '')}\n"
-        f"MAX: {data.get('max', '')}\n"
-        f"E-mail: {data.get('email', '')}\n"
-        f"Instagram: {data.get('instagram', '')}\n"
-        f"Фото: {photo_status}\n\n"
-        f"Бренд: {BRAND_NAME}\n"
-        f"GREENLEAF CLUB.RU: {ECOSYSTEM_URL}\n\n"
+        f"Имя: {data.get('name', '')}\nТелефон: {data.get('phone', '')}\n"
+        f"Telegram: {data.get('telegram', '')}\nWhatsApp: {data.get('whatsapp', '')}\n"
+        f"MAX: {data.get('max', '')}\nE-mail: {data.get('email', '')}\n"
+        f"Instagram: {data.get('instagram', '')}\nФото: {photo_status}\n\n"
+        f"Бренд: {BRAND_NAME}\nGREENLEAF CLUB.RU: {ECOSYSTEM_URL}\n\n"
         "Если всё верно — нажми «✅ Всё верно»."
     )
+
+
+async def build_and_send_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    data = context.user_data.get("card_data", {}).copy()
+    photo_path = None
+    pdf_path = None
+    try:
+        if context.user_data.get("card_photo_file_id"):
+            tg_file = await context.bot.get_file(context.user_data["card_photo_file_id"])
+            fd, photo_path = tempfile.mkstemp(prefix="greenleaf_photo_", suffix=".jpg")
+            os.close(fd)
+            await tg_file.download_to_drive(custom_path=photo_path)
+
+        safe_name = re.sub(r"[^0-9A-Za-zА-Яа-яЁё_-]+", "_", data.get("name", "partner")).strip("_") or "partner"
+        pdf_path = os.path.join(tempfile.gettempdir(), f"GREENLEAF_{safe_name}.pdf")
+        generate_business_card(data, photo_path=photo_path, output_path=pdf_path)
+
+        with open(pdf_path, "rb") as document:
+            await update.message.reply_document(
+                document=document,
+                filename=f"GREENLEAF_{safe_name}.pdf",
+                caption="💚 Готово! Твоя персональная электронная визитка GREENLEAF Leaders | Москва.\n\nВсе контактные кнопки и GREENLEAF CLUB.RU кликабельны.",
+                reply_markup=TOOLS_KEYBOARD,
+            )
+        context.user_data["card_step"] = "ready"
+    except Exception as exc:
+        print(f"Business card generation error: {exc}")
+        context.user_data["card_step"] = "confirm"
+        await update.message.reply_text(
+            "Не удалось собрать визитку с первого раза. Анкета сохранена — повторно заполнять её не нужно. Нажми «✅ Всё верно» ещё раз.",
+            reply_markup=CARD_CONFIRM_KEYBOARD,
+        )
+    finally:
+        for path in (photo_path, pdf_path):
+            if path and os.path.exists(path):
+                try:
+                    os.remove(path)
+                except OSError:
+                    pass
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -172,7 +194,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["dialog_history"] = []
     await update.message.reply_text(
         "💚 Привет! Я Лия — персональный AI-тренер Greenleaf.\n\nЯ помогу разобраться в маркетинг-плане, подготовиться к встрече, потренировать диалог, проверить знания и использовать рабочие инструменты.",
-        reply_markup=MAIN_KEYBOARD)
+        reply_markup=MAIN_KEYBOARD,
+    )
 
 
 async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -199,32 +222,31 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if user_text == "🧰 Инструменты":
         context.user_data.pop("card_step", None)
-        await update.message.reply_text(
-            "🧰 ИНСТРУМЕНТЫ\n\nЗдесь мы собираем готовые рабочие материалы нашей структуры. Выбери, что нужно:",
-            reply_markup=TOOLS_KEYBOARD)
+        await update.message.reply_text("🧰 ИНСТРУМЕНТЫ\n\nЗдесь мы собираем готовые рабочие материалы нашей структуры. Выбери, что нужно:", reply_markup=TOOLS_KEYBOARD)
         return
 
     if user_text == "📱 Создать электронную визитку":
         context.user_data["card_data"] = {}
+        context.user_data.pop("card_photo_file_id", None)
         context.user_data["card_index"] = 0
         context.user_data["card_step"] = CARD_FIELDS[0][0]
         await update.message.reply_text(
             "📱 ЭЛЕКТРОННАЯ ВИЗИТКА\n\nЯ соберу данные пошагово. В готовом материале будут обязательны бренд нашей структуры и единый QR GREENLEAF CLUB.RU.\n\n" + CARD_FIELDS[0][1],
-            reply_markup=ReplyKeyboardMarkup([["⬅️ Главное меню"]], resize_keyboard=True, is_persistent=True))
+            reply_markup=ReplyKeyboardMarkup([["⬅️ Главное меню"]], resize_keyboard=True, is_persistent=True),
+        )
         return
 
     if user_text == "✏️ Заполнить заново":
         context.user_data["card_data"] = {}
+        context.user_data.pop("card_photo_file_id", None)
         context.user_data["card_index"] = 0
         context.user_data["card_step"] = CARD_FIELDS[0][0]
         await update.message.reply_text(CARD_FIELDS[0][1])
         return
 
     if user_text == "✅ Всё верно" and context.user_data.get("card_step") == "confirm":
-        context.user_data["card_step"] = "ready"
-        await update.message.reply_text(
-            "✅ Анкета сохранена в текущем диалоге.\n\nСледующий этап — автоматическая сборка готовой брендированной электронной визитки по нашему шаблону. Данные повторно вводить не придётся.",
-            reply_markup=TOOLS_KEYBOARD)
+        await update.message.reply_text("⏳ Собираю персональную брендированную визитку…")
+        await build_and_send_card(update, context)
         return
 
     card_step = context.user_data.get("card_step")
@@ -253,9 +275,9 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "🤝 3 ШАГА ПРИГЛАШЕНИЯ\n\n"
             "1️⃣ Первое касание — электронная визитка.\nОтправь человеку персональную визитку и предложи спокойно познакомиться с компанией, продукцией и возможностями.\n\n"
             "2️⃣ Второе касание — мягкое возвращение в диалог через 1–2 дня.\nСпроси, что заинтересовало больше: компания, продукция или возможности развития, и появились ли вопросы.\n\n"
-            "3️⃣ Третье касание — приглашение на субботний онлайн-эфир.\nУкажи актуальную дату, время 10:00 по Москве и ссылку Zoom.\n\n"
-            "Материалы этого инструмента брендируются нашей структурой. Следующим этапом подключим самостоятельное заполнение имени получателя, даты и ссылки Zoom.",
-            reply_markup=TOOLS_KEYBOARD)
+            "3️⃣ Третье касание — приглашение на субботний онлайн-эфир.\nУкажи актуальную дату, время 10:00 по Москве и ссылку Zoom.",
+            reply_markup=TOOLS_KEYBOARD,
+        )
         return
 
     if user_text == "💬 Тренировка диалога":
@@ -288,7 +310,7 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         active_mode = context.user_data.get("mode")
         if active_mode == "💬 Тренировка диалога":
             context.user_data["training_history"].append("Пользователь: " + user_text)
-        ai_input = (MODES.get(active_mode, "Пользователь задаёт вопрос Лии.") + "\n\nНовая реплика пользователя: " + user_text)
+        ai_input = MODES.get(active_mode, "Пользователь задаёт вопрос Лии.") + "\n\nНовая реплика пользователя: " + user_text
 
     today_str = date.today().strftime("%d.%m.%Y")
     final_instructions = (
@@ -315,7 +337,7 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         model="gpt-5.6",
         instructions=final_instructions,
         input=model_input,
-        tools=[{"type": "web_search", "filters": {"allowed_domains": ["greenleaf-global.com", "global.green-leaf.shop", "prais-catalog.famall-obs.ru"]}}]
+        tools=[{"type": "web_search", "filters": {"allowed_domains": ["greenleaf-global.com", "global.green-leaf.shop", "prais-catalog.famall-obs.ru"]}}],
     )
     answer = polish_answer(response.output_text, user_text)
     context.user_data["dialog_history"].extend(["Пользователь: " + user_text, "Лия: " + answer])
