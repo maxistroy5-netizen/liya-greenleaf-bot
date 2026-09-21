@@ -1,5 +1,6 @@
 import os 
 import threading
+from datetime import date
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from openai import OpenAI
 from telegram import Update, ReplyKeyboardMarkup
@@ -33,6 +34,10 @@ with open("knowledge.txt", "r", encoding="utf-8") as file:
 
 with open("practice_partner.txt", "r", encoding="utf-8") as file:
     PRACTICE_KNOWLEDGE = file.read()
+
+with open("company_knowledge.txt", "r", encoding="utf-8") as file:
+    COMPANY_KNOWLEDGE = file.read()
+
 LIYA_PROMPT = """
 Правила работы с базой знаний:
 — Используй базу знаний GREENLEAF ниже как основной источник для вопросов о маркетинг-плане.
@@ -64,6 +69,11 @@ LIYA_PROMPT = """
 11. Если ты задала вопрос с вариантами А/Б/В/Г, следующий короткий ответ пользователя (например: «А», «б», «Б)», «в.») сначала трактуй как ответ на последний заданный вопрос.
 12. Принимай также текстовый эквивалент варианта ответа. Не проси повторить предыдущий вопрос, если он присутствует в истории текущего диалога.
 13. После ответа ученика сначала проверь его. Если ответ верный — коротко объясни почему и продолжай обучение. Если неверный — объясни ошибку и не переходи дальше, пока ученик не понял тему.
+14. Для общих вопросов о компании, истории, географии, представительствах, сертификатах, брендах и продукции используй отдельную COMPANY-базу.
+15. Для динамической корпоративной информации можешь использовать LIVE-поиск только по разрешённым официальным источникам, указанным в COMPANY-базе.
+16. LIVE-поиск НИКОГДА не меняет правила маркетинг-плана: PV, статусы, бонусы, проценты, квалификации, формулы и расчёты берутся только из CURRENT-базы маркетинг-плана.
+17. Если использовала LIVE-поиск, в конце ответа обязательно укажи строку с датой фактической проверки официального источника Greenleaf.
+18. Если LIVE-поиск не дал надёжного ответа, не придумывай данные и не утверждай, что проверка состоялась.
 
 Тебя зовут Лия.
 """
@@ -321,7 +331,19 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     response = client.responses.create(
         model="gpt-5.6",
         instructions=final_instructions,
-        input=model_input
+        input=model_input,
+        tools=[
+            {
+                "type": "web_search",
+                "filters": {
+                    "allowed_domains": [
+                        "greenleaf-global.com",
+                        "global.green-leaf.shop",
+                        "prais-catalog.famall-obs.ru",
+                    ]
+                },
+            }
+        ],
     )
 
     # Сохраняем текущий обмен после получения ответа. Не сохраняем нажатия
