@@ -35,30 +35,24 @@ def _register_fonts():
 
 FONT, FONT_BOLD = _register_fonts()
 
-
 def _digits(value): return re.sub(r"\D", "", value or "")
-
 def _telegram_url(value):
     value=(value or "").strip()
     if value.startswith(("http://","https://")): return value
     if value.startswith("@"): return "https://t.me/"+value[1:]
     d=_digits(value); return "https://t.me/+"+d if d else ""
-
 def _whatsapp_url(value):
     value=(value or "").strip()
     if value.startswith(("http://","https://")): return value
     d=_digits(value); return "https://wa.me/"+d if d else ""
-
 def _instagram_url(value):
     value=(value or "").strip()
     if value.startswith(("http://","https://")): return value
     return "https://instagram.com/"+value.lstrip("@") if value else ""
-
 def _max_url(value):
     value=(value or "").strip()
     if value.startswith(("http://","https://")): return value
     return "https://max.ru/"+quote(value.lstrip("@")) if value else ""
-
 def _short_social(value, kind):
     value=(value or "").strip()
     if not value: return ""
@@ -68,20 +62,16 @@ def _short_social(value, kind):
         if kind in ("instagram","telegram","max") and path: return "@"+path.split("/")[0]
         return p.netloc.replace("www.","")
     except Exception: return value
-
 def _fit(c,text,x,y,max_width,size=28,font=None,min_size=9):
     font=font or FONT_BOLD; text=str(text or ""); s=size
     while s>min_size and c.stringWidth(text,font,s)>max_width: s-=1
     c.setFont(font,s); c.drawString(x,y,text)
-
 def _button(c,x,y,w,h,title,display,url,fill):
     c.setFillColor(fill); c.roundRect(x,y,w,h,16,fill=1,stroke=0)
     c.setFillColor(colors.white); c.setFont(FONT_BOLD,11); c.drawString(x+18,y+h-22,title)
     _fit(c,display,x+18,y+18,w-38,16,FONT,9)
     if url: c.linkURL(url,(x,y,x+w,y+h),relative=0)
-
 def _logo_path(): return os.path.join(os.path.dirname(os.path.abspath(__file__)),BRAND_LOGO_FILE)
-
 def _draw_watermark(c):
     path=_logo_path()
     if not os.path.exists(path): return
@@ -92,7 +82,6 @@ def _draw_watermark(c):
         c.drawImage(img,(W-dw)/2,350+(790-dh)/2,dw,dh,mask="auto",preserveAspectRatio=True)
         c.restoreState()
     except Exception: pass
-
 def _draw_qr_logo(c,cx,cy,size=54):
     path=_logo_path()
     if not os.path.exists(path): return
@@ -102,7 +91,6 @@ def _draw_qr_logo(c,cx,cy,size=54):
         c.setFillColor(colors.white); c.circle(cx,cy,size*.56,fill=1,stroke=0)
         c.drawImage(img,cx-dw/2,cy-dh/2,dw,dh,mask="auto",preserveAspectRatio=True)
     except Exception: pass
-
 def _draw_photo(c,photo_path):
     c.setStrokeColor(GREEN); c.setLineWidth(5); c.circle(125,1100,78,fill=0,stroke=1)
     if photo_path and os.path.exists(photo_path):
@@ -123,15 +111,10 @@ def generate_business_card(data,photo_path=None,output_path=None):
     c.setFillColor(colors.HexColor("#E1F0D8")); c.circle(80,920,210,fill=1,stroke=0)
     _draw_watermark(c)
     c.setFillColor(GREEN); c.rect(0,0,W,175,fill=1,stroke=0)
-
     _draw_photo(c,photo_path)
 
-    # Clean brand title with generous whitespace; no extra slogan line.
-    c.setFillColor(GREEN)
-    c.setFont(FONT_BOLD,22)
-    c.drawCentredString(355,1112,"GREENLEAF")
-    c.setFont(FONT,15)
-    c.drawCentredString(355,1087,"Leaders | Москва")
+    c.setFillColor(GREEN); c.setFont(FONT_BOLD,22); c.drawCentredString(355,1112,"GREENLEAF")
+    c.setFont(FONT,15); c.drawCentredString(355,1087,"Leaders | Москва")
 
     qr=qrcode.QRCode(version=None,box_size=7,border=2); qr.add_data(ECOSYSTEM_URL); qr.make(fit=True)
     qr_img=qr.make_image(fill_color="black",back_color="white").convert("RGB")
@@ -141,10 +124,9 @@ def generate_business_card(data,photo_path=None,output_path=None):
     _draw_qr_logo(c,577.5,1119.5,54)
     c.setFillColor(GREEN); c.setFont(FONT_BOLD,14); c.drawCentredString(577,1008,CLUB_NAME)
     c.setFont(FONT,10); c.drawCentredString(577,988,"СКАНИРУЙ QR-КОД")
-    c.setFillColor(colors.HexColor("#0A6B47")); c.setFont(FONT_BOLD,10)
-    c.drawCentredString(577,965,"НАЖМИ, ЧТОБЫ ОТКРЫТЬ")
-    c.setStrokeColor(colors.HexColor("#0A6B47")); c.setLineWidth(0.7); c.line(515,962,639,962)
-    c.linkURL(ECOSYSTEM_URL,(495,950,660,978),relative=0)
+    c.setFillColor(colors.HexColor("#0A6B47")); c.setFont(FONT_BOLD,10); c.drawCentredString(577,965,"ОТКРЫТЬ КЛУБ →")
+    c.setStrokeColor(colors.HexColor("#0A6B47")); c.setLineWidth(0.7); c.line(526,962,628,962)
+    c.linkURL(ECOSYSTEM_URL,(500,950,655,978),relative=0)
     c.linkURL(ECOSYSTEM_URL,(475,1030,680,1225),relative=0)
 
     name=(data.get("name") or "Партнёр Greenleaf").strip()
@@ -165,11 +147,11 @@ def generate_business_card(data,photo_path=None,output_path=None):
     _button(c,48,430,305,82,"MAX",_short_social(max_value,"max"),_max_url(max_value),colors.HexColor("#335C67"))
     _button(c,367,430,305,82,"INSTAGRAM",_short_social(instagram,"instagram"),_instagram_url(instagram),colors.HexColor("#B23A78"))
 
-    c.setFillColor(GREEN); c.setFont(FONT_BOLD,16); c.drawCentredString(W/2,355,"НАШИ ЦЕННОСТИ")
-    c.setFont(FONT_BOLD,13)
-    for x,t in [(120,"ЛЮДИ"),(280,"ПРОДУКТЫ"),(445,"ВОЗМОЖНОСТИ"),(610,"БУДУЩЕЕ")]: c.drawCentredString(x,315,t)
-    c.setFont(FONT,11); c.drawCentredString(W/2,265,CLUB_NAME+" — ВСЁ В ОДНОМ МЕСТЕ")
-    c.linkURL(ECOSYSTEM_URL,(170,240,550,290),relative=0)
+    # Minimal lower section: more air, one clear ecosystem CTA.
+    c.setFillColor(GREEN); c.setFont(FONT_BOLD,18); c.drawCentredString(W/2,330,CLUB_NAME)
+    c.setFont(FONT,12); c.drawCentredString(W/2,302,"ВСЁ В ОДНОМ МЕСТЕ")
+    c.setStrokeColor(GREEN); c.setLineWidth(0.8); c.line(270,294,450,294)
+    c.linkURL(ECOSYSTEM_URL,(235,280,485,350),relative=0)
 
     c.setFillColor(colors.white); c.setFont(FONT_BOLD,18); c.drawString(48,120,"GREEN FUTURE TOGETHER")
     c.setFont(FONT,11); c.drawString(48,92,BRAND_NAME)
