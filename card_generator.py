@@ -13,6 +13,7 @@ from reportlab.pdfgen import canvas
 
 ECOSYSTEM_URL = "https://t.me/addlist/JxquFZkrHw4yYTMy"
 BRAND_NAME = "GREENLEAF Leaders | Москва"
+BRAND_LOGO_FILE = "ChatGPT Image 17 сент. 2026 г._ 19_12_45.png"
 W, H = 720, 1280
 GREEN = colors.HexColor("#075B3A")
 DARK = colors.HexColor("#092E23")
@@ -106,6 +107,19 @@ def _button(c, x, y, w, h, title, display, url, fill):
 
 
 def _draw_brand_mark(c, cx, cy, r):
+    logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), BRAND_LOGO_FILE)
+    if os.path.exists(logo_path):
+        try:
+            img = ImageReader(logo_path)
+            iw, ih = img.getSize()
+            size = r * 2
+            scale = min(size / iw, size / ih)
+            dw, dh = iw * scale, ih * scale
+            c.drawImage(img, cx - dw / 2, cy - dh / 2, dw, dh, mask="auto", preserveAspectRatio=True)
+            return
+        except Exception:
+            pass
+
     c.setFillColor(colors.white)
     c.setStrokeColor(GREEN)
     c.setLineWidth(3)
@@ -147,7 +161,7 @@ def generate_business_card(data, photo_path=None, output_path=None):
     c.setFillColor(GREEN); c.rect(0, 0, W, 180, fill=1, stroke=0)
 
     _draw_photo(c, photo_path)
-    _draw_brand_mark(c, 330, 1110, 62)
+    _draw_brand_mark(c, 330, 1110, 72)
     c.setFillColor(GREEN); c.setFont(FONT_BOLD, 12)
     c.drawString(48, 1005, "PEOPLE  |  PRODUCTS  |  OPPORTUNITIES")
     c.setFont(FONT, 11); c.drawString(48, 985, "A BETTER TOMORROW")
