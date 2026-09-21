@@ -1,6 +1,8 @@
 import os
+import re
 import threading
 from datetime import date
+from urllib.parse import urlsplit, urlunsplit
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from openai import OpenAI
 from telegram import Update, ReplyKeyboardMarkup
@@ -38,13 +40,15 @@ LIYA_PROMPT = """
 4. LIVE НИКОГДА не меняет PV, статусы, бонусы, проценты, квалификации, формулы и расчёты маркетинг-плана: они берутся только из CURRENT.
 5. Если LIVE реально использован и дал надёжный ответ, в самом конце поставь отдельной строкой: «🌐 По актуальным данным официальных источников Greenleaf на ДД.ММ.ГГГГ.» Используй фактическую дату проверки.
 6. Если LIVE не использовался или не дал надёжного ответа, не добавляй эту подпись и не утверждай, что проверка состоялась.
-7. В обычном ответе не показывай длинные URL, технические параметры ссылок и utm_source; не перечисляй ссылки после каждого факта. Если пользователь отдельно просит источник/ссылку — дай конкретные официальные ссылки.
-8. Не используй Markdown со звёздочками (**текст**) и подчёркиваниями. Для акцента используй короткие заголовки, переносы строк и эмодзи.
+7. ОБЫЧНЫЙ ВОПРОС: дай чистый ответ без URL, без Markdown-ссылок, без технических параметров и без перечня источников. Даже если web_search вернул ссылки, не вставляй их в текст автоматически.
+8. ИСТОЧНИК ПО ПРОСЬБЕ: только если пользователь прямо просит «источник», «ссылку», «где посмотреть», «откуда информация» или аналогичное — дай 1–3 наиболее конкретные официальные ссылки. Не дублируй одну ссылку в разных форматах. Никогда не добавляй utm_source, ysclid и другие рекламные/технические параметры.
+9. Если пользователь просит источник конкретного факта, сначала коротко назови источник человеческим языком, затем дай прямую чистую ссылку. Не добавляй лишние документы, если один источник уже подтверждает факт.
+10. Не используй Markdown со звёздочками (**текст**) и подчёркиваниями. Для акцента используй короткие заголовки, переносы строк и эмодзи.
 
 ОБУЧЕНИЕ:
-9. Новичка обучай маленькими уроками; после важного понятия задавай один вопрос и проверяй понимание. При ошибке объясни её и не переходи дальше, пока тема не понята.
-10. Всегда учитывай историю текущего диалога. Если ты задала вопрос А/Б/В/Г, короткий ответ «А», «б», «Б)», «в.» трактуй как ответ на последний вопрос. Принимай и текстовый эквивалент варианта.
-11. Не перегружай человека информацией. Если данных недостаточно — прямо скажи, чего не хватает.
+11. Новичка обучай маленькими уроками; после важного понятия задавай один вопрос и проверяй понимание. При ошибке объясни её и не переходи дальше, пока тема не понята.
+12. Всегда учитывай историю текущего диалога. Если ты задала вопрос А/Б/В/Г, короткий ответ «А», «б», «Б)», «в.» трактуй как ответ на последний вопрос. Принимай и текстовый эквивалент варианта.
+13. Не перегружай человека информацией. Если данных недостаточно — прямо скажи, чего не хватает.
 """
 
 MODES = {
@@ -64,12 +68,43 @@ LEVELS = {
     "🔴 Сложный": "УРОВЕНЬ СЛОЖНЫЙ: опытный требовательный скептик, конкретные неудобные вопросы, проси подтверждать утверждения; не груби."
 }
 
+SOURCE_REQUEST_RE = re.compile(r"(?i)\b(источник|источники|ссылк\w*|где\s+(?:это\s+)?посмотреть|откуда\s+(?:ты\s+)?(?:взял\w*|информац\w*)|подтвержден\w*|официальн\w+\s+источник)\b")
+URL_RE = re.compile(r"https?://[^\s)\]>]+")
+MARKDOWN_LINK_RE = re.compile(r"\[([^\]]+)\]\((https?://[^)]+)\)")
+
+
+def clean_url(url: str) -> str:
+    url = url.rstrip(".,;:!?")
+    try:
+        parts = urlsplit(url)
+        return urlunsplit((parts.scheme, parts.netloc, parts.path, "", ""))
+    except Exception:
+        return url.split("?", 1)[0]
+
+
+def polish_answer(answer: str, user_text: str) -> str:
+    wants_source = bool(SOURCE_REQUEST_RE.search(user_text or ""))
+    if wants_source:
+        answer = MARKDOWN_LINK_RE.sub(lambda m: f"{m.group(1)}: {clean_url(m.group(2))}", answer)
+        answer = URL_RE.sub(lambda m: clean_url(m.group(0)), answer)
+    else:
+        answer = MARKDOWN_LINK_RE.sub(lambda m: m.group(1), answer)
+        answer = URL_RE.sub("", answer)
+        answer = re.sub(r"\(\s*\)", "", answer)
+        answer = re.sub(r"\[\s*\]", "", answer)
+    answer = re.sub(r"\*\*([^*]+)\*\*", r"\1", answer)
+    answer = re.sub(r"[ \t]+\n", "\n", answer)
+    answer = re.sub(r"\n{3,}", "\n\n", answer)
+    return answer.strip()
+
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
     context.user_data["dialog_history"] = []
     await update.message.reply_text(
         "💚 Привет! Я Лия — персональный AI-тренер Greenleaf.\n\nЯ помогу разобраться в маркетинг-плане, подготовиться к встрече, потренировать диалог, проверить знания и использовать рабочие инструменты.",
         reply_markup=MAIN_KEYBOARD)
+
 
 async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_text = update.message.text
@@ -141,12 +176,13 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         input=model_input,
         tools=[{"type": "web_search", "filters": {"allowed_domains": ["greenleaf-global.com", "global.green-leaf.shop", "prais-catalog.famall-obs.ru"]}}]
     )
-    answer = response.output_text
+    answer = polish_answer(response.output_text, user_text)
     context.user_data["dialog_history"].extend(["Пользователь: " + user_text, "Лия: " + answer])
     context.user_data["dialog_history"] = context.user_data["dialog_history"][-20:]
     if context.user_data.get("mode") == "💬 Тренировка диалога":
         context.user_data["training_history"].append("Лия: " + answer)
     await update.message.reply_text(answer, reply_markup=MAIN_KEYBOARD)
+
 
 class HealthHandler(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -154,12 +190,15 @@ class HealthHandler(BaseHTTPRequestHandler):
         self.send_header("Content-type", "text/plain")
         self.end_headers()
         self.wfile.write(b"Liya bot is running")
+
     def log_message(self, format, *args):
         return
+
 
 def run_health_server():
     port = int(os.environ.get("PORT", 10000))
     HTTPServer(("0.0.0.0", port), HealthHandler).serve_forever()
+
 
 def main():
     threading.Thread(target=run_health_server, daemon=True).start()
@@ -167,6 +206,7 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, chat))
     app.run_polling()
+
 
 if __name__ == "__main__":
     main()
