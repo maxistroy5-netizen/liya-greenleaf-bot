@@ -88,8 +88,8 @@ def _draw_watermark(c):
     try:
         img=ImageReader(path); iw,ih=img.getSize(); maxw,maxh=620,780
         scale=min(maxw/iw,maxh/ih); dw,dh=iw*scale,ih*scale
-        c.saveState(); c.setFillAlpha(0.10)
-        c.drawImage(img,(W-dw)/2,360+(780-dh)/2,dw,dh,mask="auto",preserveAspectRatio=True)
+        c.saveState(); c.setFillAlpha(0.08)
+        c.drawImage(img,(W-dw)/2,350+(790-dh)/2,dw,dh,mask="auto",preserveAspectRatio=True)
         c.restoreState()
     except Exception: pass
 
@@ -125,8 +125,13 @@ def generate_business_card(data,photo_path=None,output_path=None):
     c.setFillColor(GREEN); c.rect(0,0,W,175,fill=1,stroke=0)
 
     _draw_photo(c,photo_path)
-    c.setFillColor(GREEN); c.setFont(FONT_BOLD,12); c.drawString(48,1000,"PEOPLE  |  PRODUCTS  |  OPPORTUNITIES")
-    c.setFont(FONT,11); c.drawString(48,980,"A BETTER TOMORROW")
+
+    # Clean brand title with generous whitespace; no extra slogan line.
+    c.setFillColor(GREEN)
+    c.setFont(FONT_BOLD,22)
+    c.drawCentredString(355,1112,"GREENLEAF")
+    c.setFont(FONT,15)
+    c.drawCentredString(355,1087,"Leaders | Москва")
 
     qr=qrcode.QRCode(version=None,box_size=7,border=2); qr.add_data(ECOSYSTEM_URL); qr.make(fit=True)
     qr_img=qr.make_image(fill_color="black",back_color="white").convert("RGB")
@@ -145,7 +150,6 @@ def generate_business_card(data,photo_path=None,output_path=None):
     name=(data.get("name") or "Партнёр Greenleaf").strip()
     c.setFillColor(DARK); _fit(c,name,48,895,400,39,FONT_BOLD,20)
     c.setFillColor(GREEN); c.setFont(FONT_BOLD,20); c.drawString(48,850,"ПАРТНЁР КОРПОРАЦИИ"); c.drawString(48,820,"GREENLEAF")
-    c.setFont(FONT,13); c.drawString(48,775,"ЛЮДИ • ПРОДУКТЫ • ВОЗМОЖНОСТИ • БУДУЩЕЕ")
 
     phone=(data.get("phone") or "").strip()
     c.setFillColor(colors.white); c.roundRect(48,650,624,82,16,fill=1,stroke=0)
