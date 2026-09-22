@@ -91,14 +91,17 @@ try:
             if step == 1:
                 field = (int(w*.143), int(h*.174), int(w*.319), int(h*.226))
             elif step == 2:
-                field = (int(w*.133), int(h*.183), int(w*.538), int(h*.235))
+                # Exact empty recipient rectangle above the headline.
+                field = (int(w*.109), int(h*.182), int(w*.411), int(h*.220))
             else:
                 field = (int(w*.143), int(h*.174), int(w*.319), int(h*.226))
             _draw_centered(draw, recipient, font_path, field, max(18,int(w*.018)), 13, green)
 
         if step == 2 and sender:
-            sender_field = (int(w*.225), int(h*.742), int(w*.610), int(h*.790))
-            _draw_centered(draw, sender, font_path, sender_field, max(16,int(w*.016)), 12, green)
+            # Exact white signature rectangle beside the green person icon.
+            # Keep clear of the small pre-existing footer text to the right.
+            sender_field = (int(w*.180), int(h*.806), int(w*.455), int(h*.842))
+            _draw_centered(draw, sender, font_path, sender_field, max(15,int(w*.014)), 11, green)
 
         if step == 3:
             event_date, event_time, zoom_url = _event_from_text(event_text)
@@ -144,7 +147,6 @@ try:
         return result
 
     async def _reply_text_with_invitation_pdf(self, text, *args, **kwargs):
-        # Suppress accidental AI chatter that should never appear inside the scripted 3-step flow.
         if isinstance(text, str):
             normalized = text.strip().lower()
             if normalized.startswith("переходим к шагу 2"):
@@ -163,9 +165,6 @@ try:
             temp_pdf = None
             try:
                 recipient = _recipient_from_text(text)
-                # Prefer the exact name captured from the user's business-card PDF.
-                # If Render restarted and that in-memory value disappeared, fall back to the Telegram profile name
-                # so step 2 never silently leaves the sender field blank.
                 sender = _sender_by_chat.get(self.chat_id, "") or _telegram_sender_name(self)
                 if sender:
                     _sender_by_chat[self.chat_id] = sender
@@ -183,6 +182,6 @@ try:
 
     Message.reply_document = _reply_document_with_greenleaf_followup
     Message.reply_text = _reply_text_with_invitation_pdf
-    print("GREENLEAF personalized PDF hook v9 sender fallback + clean flow loaded", flush=True)
+    print("GREENLEAF personalized PDF hook v10 step2 precision alignment loaded", flush=True)
 except Exception as exc:
     print(f"GREENLEAF runtime hook not loaded: {type(exc).__name__}: {exc}", flush=True)
