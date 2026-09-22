@@ -83,17 +83,22 @@ def _cover_image(c,path,x,y,w,h,clip_circle=False):
     except Exception: pass
 
 
-def _fit_photo_in_circle(c,path,cx,cy,diameter,inner_margin=14):
-    """Fit the complete photo inside the circular portrait area instead of zoom-cropping it."""
+def _portrait_fill_circle(c,path,cx,cy,diameter,inner_margin=18,vertical_bias=0.08):
+    """Fill the portrait circle edge-to-edge while preserving aspect ratio.
+    A portrait image is cropped mainly at top/bottom, not squeezed; the template's green rim stays visible.
+    """
     if not path or not os.path.exists(path): return
     try:
         img=ImageReader(path); iw,ih=img.getSize()
         inner=diameter-(inner_margin*2)
-        scale=min(inner/iw,inner/ih)
+        scale=max(inner/iw,inner/ih)
         dw,dh=iw*scale,ih*scale
+        # Slight upward bias keeps the face naturally centred when vertical cropping is required.
+        max_shift=max(0,(dh-inner)/2)
+        shift=min(max_shift,dh*vertical_bias)
         c.saveState()
         p=c.beginPath(); p.circle(cx,cy,inner/2); c.clipPath(p,stroke=0,fill=0)
-        c.drawImage(img,cx-dw/2,cy-dh/2,dw,dh,mask="auto")
+        c.drawImage(img,cx-dw/2,cy-dh/2-shift,dw,dh,mask="auto")
         c.restoreState()
     except Exception: pass
 
@@ -115,8 +120,8 @@ def generate_business_card(data,photo_path=None,output_path=None):
     else:
         c.setFillColor(colors.HexColor("#F7FBF4")); c.rect(0,0,W,H,fill=1,stroke=0)
 
-    # Portrait: preserve the whole submitted photo, scale it down to fit, and leave the green template rim visible.
-    _fit_photo_in_circle(c,photo_path,242,1227,350,18)
+    # Portrait fills the circle with no white side fields; aspect ratio is preserved and the green rim remains visible.
+    _portrait_fill_circle(c,photo_path,242,1227,350,18)
 
     qr=qrcode.QRCode(version=None,box_size=8,border=2,error_correction=qrcode.constants.ERROR_CORRECT_H)
     qr.add_data(ECOSYSTEM_URL); qr.make(fit=True)
