@@ -83,27 +83,16 @@ def _cover_image(c,path,x,y,w,h,clip_circle=False):
     except Exception: pass
 
 
-def _portrait_layered(c,path,cx,cy,diameter,inner_margin=18,foreground_scale=0.86):
-    """Portrait like the approved reference: subject visually smaller, no white gaps.
-    A full-bleed copy fills the circle behind a smaller aspect-preserved foreground copy.
-    """
+def _fit_photo_in_circle(c,path,cx,cy,diameter,inner_margin=14):
     if not path or not os.path.exists(path): return
     try:
         img=ImageReader(path); iw,ih=img.getSize()
         inner=diameter-(inner_margin*2)
+        scale=min(inner/iw,inner/ih)
+        dw,dh=iw*scale,ih*scale
         c.saveState()
         p=c.beginPath(); p.circle(cx,cy,inner/2); c.clipPath(p,stroke=0,fill=0)
-
-        # Background fills the circular opening completely, so no white side fields can appear.
-        bg_scale=max(inner/iw,inner/ih)
-        bgw,bgh=iw*bg_scale,ih*bg_scale
-        c.drawImage(img,cx-bgw/2,cy-bgh/2,bgw,bgh,mask="auto")
-
-        # Foreground is intentionally smaller, matching the successful previous composition.
-        target=inner*foreground_scale
-        fg_scale=min(target/iw,target/ih)
-        fgw,fgh=iw*fg_scale,ih*fg_scale
-        c.drawImage(img,cx-fgw/2,cy-fgh/2,fgw,fgh,mask="auto")
+        c.drawImage(img,cx-dw/2,cy-dh/2,dw,dh,mask="auto")
         c.restoreState()
     except Exception: pass
 
@@ -125,7 +114,7 @@ def generate_business_card(data,photo_path=None,output_path=None):
     else:
         c.setFillColor(colors.HexColor("#F7FBF4")); c.rect(0,0,W,H,fill=1,stroke=0)
 
-    _portrait_layered(c,photo_path,242,1227,350,18,0.86)
+    _fit_photo_in_circle(c,photo_path,242,1227,350,18)
 
     qr=qrcode.QRCode(version=None,box_size=8,border=2,error_correction=qrcode.constants.ERROR_CORRECT_H)
     qr.add_data(ECOSYSTEM_URL); qr.make(fit=True)
