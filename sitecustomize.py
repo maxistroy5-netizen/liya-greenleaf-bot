@@ -91,14 +91,12 @@ try:
             if step == 1:
                 field = (int(w*.143), int(h*.174), int(w*.319), int(h*.226))
             elif step == 2:
-                # Top recipient box in the actual step-2 artwork.
                 field = (int(w*.133), int(h*.183), int(w*.538), int(h*.235))
             else:
                 field = (int(w*.143), int(h*.174), int(w*.319), int(h*.226))
             _draw_centered(draw, recipient, font_path, field, max(18,int(w*.018)), 13, green)
 
         if step == 2 and sender:
-            # Signature field beside the person icon at the bottom of step 2.
             sender_field = (int(w*.225), int(h*.742), int(w*.610), int(h*.790))
             _draw_centered(draw, sender, font_path, sender_field, max(16,int(w*.016)), 12, green)
 
@@ -125,6 +123,16 @@ try:
         out_doc.close(); src.close()
         return output_path
 
+    def _telegram_sender_name(message):
+        try:
+            user = message.from_user
+            if not user:
+                return ""
+            full = (user.full_name or "").strip()
+            return full
+        except Exception:
+            return ""
+
     async def _reply_document_with_greenleaf_followup(self, *args, **kwargs):
         result = await _original_reply_document(self, *args, **kwargs)
         filename = kwargs.get("filename") or ""
@@ -136,6 +144,16 @@ try:
         return result
 
     async def _reply_text_with_invitation_pdf(self, text, *args, **kwargs):
+        # Suppress accidental AI chatter that should never appear inside the scripted 3-step flow.
+        if isinstance(text, str):
+            normalized = text.strip().lower()
+            if normalized.startswith("переходим к шагу 2"):
+                return None
+            if "в истории диалога нет содержания шага" in normalized:
+                return None
+            if normalized.startswith("уточните, пожалуйста, какое обучение или задание"):
+                return None
+
         step = None
         if isinstance(text, str):
             if text.startswith("1️⃣ ПЕРВОЕ КАСАНИЕ"): step = 1
@@ -145,7 +163,12 @@ try:
             temp_pdf = None
             try:
                 recipient = _recipient_from_text(text)
-                sender = _sender_by_chat.get(self.chat_id, "")
+                # Prefer the exact name captured from the user's business-card PDF.
+                # If Render restarted and that in-memory value disappeared, fall back to the Telegram profile name
+                # so step 2 never silently leaves the sender field blank.
+                sender = _sender_by_chat.get(self.chat_id, "") or _telegram_sender_name(self)
+                if sender:
+                    _sender_by_chat[self.chat_id] = sender
                 temp_pdf = _make_personalized_pdf(step, recipient, sender, text)
                 with open(temp_pdf, "rb") as document:
                     await _original_reply_document(self, document=document, filename=os.path.basename(temp_pdf), caption=f"💚 ШАГ {step} — персональный PDF для {recipient or 'приглашения'}.")
@@ -160,6 +183,6 @@ try:
 
     Message.reply_document = _reply_document_with_greenleaf_followup
     Message.reply_text = _reply_text_with_invitation_pdf
-    print("GREENLEAF personalized PDF hook v8 step2 fields loaded", flush=True)
+    print("GREENLEAF personalized PDF hook v9 sender fallback + clean flow loaded", flush=True)
 except Exception as exc:
     print(f"GREENLEAF runtime hook not loaded: {type(exc).__name__}: {exc}", flush=True)
