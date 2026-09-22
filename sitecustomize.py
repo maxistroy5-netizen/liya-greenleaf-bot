@@ -43,11 +43,7 @@ try:
                 break
         if not zoom_url and urls:
             zoom_url = urls[0].rstrip(".,;:!?")
-        return (
-            date_match.group(1).strip() if date_match else "",
-            time_match.group(1).strip() if time_match else "",
-            zoom_url,
-        )
+        return (date_match.group(1).strip() if date_match else "", time_match.group(1).strip() if time_match else "", zoom_url)
 
     def _safe_name(value: str) -> str:
         return re.sub(r"[^0-9A-Za-zА-Яа-яЁё_-]+", "_", value or "").strip("_") or "partner"
@@ -91,17 +87,16 @@ try:
             if step == 1:
                 field = (int(w*.143), int(h*.174), int(w*.319), int(h*.226))
             elif step == 2:
-                # Exact empty recipient rectangle above the headline.
-                field = (int(w*.109), int(h*.182), int(w*.411), int(h*.220))
+                # The visible top white name box in the second template.
+                field = (int(w*.253), int(h*.178), int(w*.414), int(h*.215))
             else:
                 field = (int(w*.143), int(h*.174), int(w*.319), int(h*.226))
             _draw_centered(draw, recipient, font_path, field, max(18,int(w*.018)), 13, green)
 
         if step == 2 and sender:
-            # Exact white signature rectangle beside the green person icon.
-            # Keep clear of the small pre-existing footer text to the right.
-            sender_field = (int(w*.180), int(h*.806), int(w*.455), int(h*.842))
-            _draw_centered(draw, sender, font_path, sender_field, max(15,int(w*.014)), 11, green)
+            # The long white sender box next to the green profile icon.
+            field = (int(w*.174), int(h*.810), int(w*.467), int(h*.844))
+            _draw_centered(draw, sender, font_path, field, max(14,int(w*.013)), 10, green)
 
         if step == 3:
             event_date, event_time, zoom_url = _event_from_text(event_text)
@@ -131,8 +126,7 @@ try:
             user = message.from_user
             if not user:
                 return ""
-            full = (user.full_name or "").strip()
-            return full
+            return (user.full_name or "").strip()
         except Exception:
             return ""
 
@@ -146,15 +140,25 @@ try:
                 _sender_by_chat[self.chat_id] = sender
         return result
 
+    def _is_stray_step_reply(text: str) -> bool:
+        n = re.sub(r"\s+", " ", (text or "").strip().lower())
+        stray_fragments = (
+            "переходим к шагу 2",
+            "готова перейти к шагу 2",
+            "готов перейти к шагу 2",
+            "в истории диалога нет",
+            "нет содержания шага 1",
+            "уточните, пожалуйста, какое обучение",
+            "уточните, пожалуйста, к какому обучению",
+            "какую тему или задание мы разбираем",
+            "какое обучение или задание вы проходите",
+        )
+        return any(fragment in n for fragment in stray_fragments)
+
     async def _reply_text_with_invitation_pdf(self, text, *args, **kwargs):
-        if isinstance(text, str):
-            normalized = text.strip().lower()
-            if normalized.startswith("переходим к шагу 2"):
-                return None
-            if "в истории диалога нет содержания шага" in normalized:
-                return None
-            if normalized.startswith("уточните, пожалуйста, какое обучение или задание"):
-                return None
+        if isinstance(text, str) and _is_stray_step_reply(text):
+            print(f"GREENLEAF suppressed stray step reply: {text[:120]!r}", flush=True)
+            return None
 
         step = None
         if isinstance(text, str):
@@ -182,6 +186,6 @@ try:
 
     Message.reply_document = _reply_document_with_greenleaf_followup
     Message.reply_text = _reply_text_with_invitation_pdf
-    print("GREENLEAF personalized PDF hook v10 step2 precision alignment loaded", flush=True)
+    print("GREENLEAF personalized PDF hook v11 step2 fields + strict stray suppression loaded", flush=True)
 except Exception as exc:
     print(f"GREENLEAF runtime hook not loaded: {type(exc).__name__}: {exc}", flush=True)
