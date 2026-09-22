@@ -38,6 +38,21 @@ CARD_CONFIRM_KEYBOARD = ReplyKeyboardMarkup([
     ["⬅️ Главное меню"],
 ], resize_keyboard=True, is_persistent=True)
 
+INVITE_STEP1_KEYBOARD = ReplyKeyboardMarkup([
+    ["➡️ Шаг 2", "✏️ Изменить текст"],
+    ["⬅️ Главное меню"],
+], resize_keyboard=True, is_persistent=True)
+
+INVITE_STEP2_KEYBOARD = ReplyKeyboardMarkup([
+    ["➡️ Шаг 3", "✏️ Изменить текст"],
+    ["⬅️ Главное меню"],
+], resize_keyboard=True, is_persistent=True)
+
+INVITE_STEP3_KEYBOARD = ReplyKeyboardMarkup([
+    ["🔄 Новое приглашение", "✏️ Изменить текст"],
+    ["⬅️ Главное меню"],
+], resize_keyboard=True, is_persistent=True)
+
 CARD_FIELDS = [
     ("name", "1/8. Напиши имя и фамилию, как они должны выглядеть на визитке."),
     ("phone", "2/8. Укажи номер телефона."),
@@ -150,6 +165,23 @@ def card_summary(data: dict) -> str:
     )
 
 
+def invite_text(step: int, name: str, event_info: str = "") -> str:
+    name = name.strip() or ""
+    hello = f"{name}, привет!" if name else "Привет!"
+    if step == 1:
+        return (
+            f"{hello} 😊 У меня сейчас много нового происходит — я развиваюсь в международном проекте Greenleaf. "
+            "Хочу просто поделиться с тобой своей электронной визиткой: там можно спокойно посмотреть информацию о компании, продукции и возможностях. "
+            "Посмотри, когда будет удобно, без обязательств 💚"
+        )
+    if step == 2:
+        return f"{hello} 😊 Как твои впечатления от нашей корпорации? Что тебе откликнулось или заинтересовало больше всего?"
+    return (
+        f"{hello} 💚 Хочу пригласить тебя на наш субботний онлайн-эфир. Это хороший способ спокойно посмотреть, как всё устроено, "
+        f"услышать информацию и задать вопросы. Начало в 10:00 по Москве.\n\n{event_info.strip()}"
+    ).strip()
+
+
 async def build_and_send_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = context.user_data.get("card_data", {}).copy()
     photo_path = None
@@ -222,6 +254,7 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if user_text == "🧰 Инструменты":
         context.user_data.pop("card_step", None)
+        context.user_data.pop("invite_step", None)
         await update.message.reply_text("🧰 ИНСТРУМЕНТЫ\n\nЗдесь мы собираем готовые рабочие материалы нашей структуры. Выбери, что нужно:", reply_markup=TOOLS_KEYBOARD)
         return
 
@@ -270,14 +303,91 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("Отправь фотографию как фото в Telegram или напиши «пропустить».")
         return
 
-    if user_text == "🤝 3 шага приглашения партнёра":
+    if user_text in {"🤝 3 шага приглашения партнёра", "🔄 Новое приглашение"}:
+        context.user_data.pop("card_step", None)
+        context.user_data["invite_step"] = "name"
+        context.user_data["invite_data"] = {}
         await update.message.reply_text(
-            "🤝 3 ШАГА ПРИГЛАШЕНИЯ\n\n"
-            "1️⃣ Первое касание — электронная визитка.\nОтправь человеку персональную визитку и предложи спокойно познакомиться с компанией, продукцией и возможностями.\n\n"
-            "2️⃣ Второе касание — мягкое возвращение в диалог через 1–2 дня.\nСпроси, что заинтересовало больше: компания, продукция или возможности развития, и появились ли вопросы.\n\n"
-            "3️⃣ Третье касание — приглашение на субботний онлайн-эфир.\nУкажи актуальную дату, время 10:00 по Москве и ссылку Zoom.",
-            reply_markup=TOOLS_KEYBOARD,
+            "🤝 3 ШАГА ПРИГЛАШЕНИЯ\n\nЯ проведу тебя по трём касаниям и дам готовые сообщения, которые можно отправить человеку.\n\nДля начала напиши имя человека, которого хочешь пригласить.",
+            reply_markup=ReplyKeyboardMarkup([["⬅️ Главное меню"]], resize_keyboard=True, is_persistent=True),
         )
+        return
+
+    invite_step = context.user_data.get("invite_step")
+    if invite_step == "name":
+        name = user_text.strip()
+        context.user_data["invite_data"] = {"name": name}
+        text = invite_text(1, name)
+        context.user_data["invite_data"]["last_text"] = text
+        context.user_data["invite_data"]["current_step"] = 1
+        context.user_data["invite_step"] = "step1_ready"
+        await update.message.reply_text(
+            "1️⃣ ПЕРВОЕ КАСАНИЕ\n\nОтправь человеку свою электронную визитку и это сообщение:\n\n" + text + "\n\nЕсли текст подходит — переходи к шагу 2. Если хочешь другой тон, нажми «✏️ Изменить текст».",
+            reply_markup=INVITE_STEP1_KEYBOARD,
+        )
+        return
+
+    if user_text == "➡️ Шаг 2" and invite_step == "step1_ready":
+        name = context.user_data.get("invite_data", {}).get("name", "")
+        text = invite_text(2, name)
+        context.user_data["invite_data"]["last_text"] = text
+        context.user_data["invite_data"]["current_step"] = 2
+        context.user_data["invite_step"] = "step2_ready"
+        await update.message.reply_text(
+            "2️⃣ ВТОРОЕ КАСАНИЕ\n\nЧерез 1–2 дня мягко вернись в диалог:\n\n" + text + "\n\nНе перегружай человека информацией — сначала выслушай его ответ.",
+            reply_markup=INVITE_STEP2_KEYBOARD,
+        )
+        return
+
+    if user_text == "➡️ Шаг 3" and invite_step == "step2_ready":
+        context.user_data["invite_step"] = "event_info"
+        await update.message.reply_text(
+            "3️⃣ ТРЕТЬЕ КАСАНИЕ\n\nТеперь приглашение на субботний эфир в 10:00 по Москве.\n\nНапиши одним сообщением актуальную дату эфира и ссылку Zoom. Например:\n28 сентября\nhttps://...",
+            reply_markup=ReplyKeyboardMarkup([["⬅️ Главное меню"]], resize_keyboard=True, is_persistent=True),
+        )
+        return
+
+    if invite_step == "event_info":
+        name = context.user_data.get("invite_data", {}).get("name", "")
+        context.user_data["invite_data"]["event_info"] = user_text.strip()
+        text = invite_text(3, name, user_text)
+        context.user_data["invite_data"]["last_text"] = text
+        context.user_data["invite_data"]["current_step"] = 3
+        context.user_data["invite_step"] = "step3_ready"
+        await update.message.reply_text(
+            "3️⃣ ГОТОВОЕ ПРИГЛАШЕНИЕ\n\n" + text + "\n\n💚 Три касания готовы. Главное — не давить, а вести человека спокойно от знакомства к диалогу.",
+            reply_markup=INVITE_STEP3_KEYBOARD,
+        )
+        return
+
+    if user_text == "✏️ Изменить текст" and invite_step in {"step1_ready", "step2_ready", "step3_ready"}:
+        context.user_data["invite_step_before_edit"] = invite_step
+        context.user_data["invite_step"] = "edit_request"
+        await update.message.reply_text(
+            "Напиши, что именно изменить. Например: «короче», «теплее», «для близкой подруги», «более деловой тон» или опиши свой вариант.",
+            reply_markup=ReplyKeyboardMarkup([["⬅️ Главное меню"]], resize_keyboard=True, is_persistent=True),
+        )
+        return
+
+    if invite_step == "edit_request":
+        data = context.user_data.get("invite_data", {})
+        current_text = data.get("last_text", "")
+        step_num = data.get("current_step", 1)
+        edit_instruction = user_text.strip()
+        response = client.responses.create(
+            model="gpt-5.6",
+            instructions=(
+                "Ты редактируешь короткое личное сообщение для приглашения в Greenleaf. Сохрани смысл исходного сообщения, не добавляй обещаний дохода, давления, срочности или неподтверждённых фактов. "
+                "Верни только готовый текст сообщения без пояснений, заголовков, кавычек и Markdown. Пиши естественно и по-человечески."
+            ),
+            input=f"Исходный текст:\n{current_text}\n\nПожелание пользователя:\n{edit_instruction}",
+        )
+        edited = response.output_text.strip()
+        data["last_text"] = edited
+        previous = context.user_data.pop("invite_step_before_edit", f"step{step_num}_ready")
+        context.user_data["invite_step"] = previous
+        keyboard = INVITE_STEP1_KEYBOARD if step_num == 1 else INVITE_STEP2_KEYBOARD if step_num == 2 else INVITE_STEP3_KEYBOARD
+        await update.message.reply_text("✏️ Вот обновлённый вариант:\n\n" + edited, reply_markup=keyboard)
         return
 
     if user_text == "💬 Тренировка диалога":
