@@ -33,6 +33,11 @@ TOOLS_KEYBOARD = ReplyKeyboardMarkup([
     ["⬅️ Главное меню"],
 ], resize_keyboard=True, is_persistent=True)
 
+CARD_NEXT_KEYBOARD = ReplyKeyboardMarkup([
+    ["🤝 3 шага приглашения партнёра"],
+    ["⬅️ Главное меню"],
+], resize_keyboard=True, is_persistent=True)
+
 CARD_CONFIRM_KEYBOARD = ReplyKeyboardMarkup([
     ["✅ Всё верно", "✏️ Заполнить заново"],
     ["⬅️ Главное меню"],
@@ -251,9 +256,18 @@ async def build_and_send_card(update: Update, context: ContextTypes.DEFAULT_TYPE
                 document=document,
                 filename=f"GREENLEAF_{safe_name}.pdf",
                 caption="💚 Готово! Твоя персональная электронная визитка GREENLEAF Leaders | Москва.\n\nВсе контактные кнопки и GREENLEAF CLUB.RU кликабельны.",
-                reply_markup=TOOLS_KEYBOARD,
             )
         context.user_data["card_step"] = "ready"
+        await update.message.reply_text(
+            "💚 Визитка готова!\n\n"
+            "Следующий шаг — научиться правильно приглашать человека без давления и навязывания.\n\n"
+            "Лия проведёт тебя по готовому алгоритму:\n"
+            "1️⃣ первое касание — визитка\n"
+            "2️⃣ второе касание — обратная связь\n"
+            "3️⃣ третье касание — приглашение на Zoom\n\n"
+            "Хочешь пройти 3 шага прямо сейчас? Нажми кнопку ниже 👇",
+            reply_markup=CARD_NEXT_KEYBOARD,
+        )
     except Exception as exc:
         print(f"Business card generation error: {exc}")
         context.user_data["card_step"] = "confirm"
