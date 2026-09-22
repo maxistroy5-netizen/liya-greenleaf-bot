@@ -6,7 +6,7 @@ import re
 import tempfile
 
 try:
-    from telegram import Message, ReplyKeyboardMarkup
+    from telegram import Message
     from reportlab.pdfgen import canvas
     from reportlab.pdfbase import pdfmetrics
     from reportlab.pdfbase.ttfonts import TTFont
@@ -32,22 +32,9 @@ try:
             if os.path.exists(path):
                 pdfmetrics.registerFont(TTFont(font_name, path))
                 return font_name
-        for root in ("/usr/share/fonts", "/usr/local/share/fonts"):
-            if not os.path.isdir(root):
-                continue
-            for dirpath, _, filenames in os.walk(root):
-                for filename in filenames:
-                    if filename.lower() in {"dejavusans.ttf", "notosans-regular.ttf", "freesans.ttf", "liberationsans-regular.ttf"}:
-                        path = os.path.join(dirpath, filename)
-                        try:
-                            pdfmetrics.registerFont(TTFont(font_name, path))
-                            return font_name
-                        except Exception:
-                            pass
         raise RuntimeError("Cyrillic TrueType font was not found on Render")
 
     def _recipient_from_text(text: str) -> str:
-        # Works with: "Эрика, привет!" inside all three Liya messages.
         match = re.search(r"(?:^|\n)([^\n,]{1,60}),\s*привет!", text, re.IGNORECASE)
         return match.group(1).strip() if match else ""
 
@@ -95,18 +82,22 @@ try:
         recipient = (recipient or "").strip()
         sender = (sender or "").strip()
 
-        # A clearly visible personalized block in the upper part of each template.
-        y = height * 0.91
+        # IMPORTANT: write the recipient directly into the designed blank field
+        # after the printed word "Привет," instead of adding a separate label.
         if recipient:
-            label = f"Для: {recipient}"
-            _fit_text(c, label, font_name, min(22, width * 0.021), 10, width * 0.72)
-            c.drawString(width * 0.10, y, label)
-            y -= height * 0.04
-        if sender:
-            label = f"От: {sender}"
-            _fit_text(c, label, font_name, min(18, width * 0.017), 9, width * 0.72)
-            c.drawString(width * 0.10, y, label)
+            if step == 1:
+                x, y, max_w = width * 0.185, height * 0.815, width * 0.235
+                max_size = min(20, width * 0.018)
+            elif step == 2:
+                x, y, max_w = width * 0.185, height * 0.815, width * 0.235
+                max_size = min(20, width * 0.018)
+            else:
+                x, y, max_w = width * 0.185, height * 0.815, width * 0.235
+                max_size = min(20, width * 0.018)
+            _fit_text(c, recipient, font_name, max_size, 9, max_w)
+            c.drawString(x, y, recipient)
 
+        # Step 3 also receives the current Zoom details.
         if step == 3:
             event_date, event_time, zoom_url = _event_from_text(event_text)
             lines = []
@@ -172,7 +163,6 @@ try:
                     )
             except Exception as exc:
                 print(f"GREENLEAF PDF PERSONALIZATION FAILED step={step}: {type(exc).__name__}: {exc}", flush=True)
-                # Deliberately do NOT send the empty template: it hides the real error.
                 await _original_reply_text(
                     self,
                     f"⚠️ Не удалось персонализировать PDF шага {step}. Пустой шаблон не отправляю. Ошибка записана в Render Logs.",
@@ -188,6 +178,6 @@ try:
 
     Message.reply_document = _reply_document_with_greenleaf_followup
     Message.reply_text = _reply_text_with_invitation_pdf
-    print("GREENLEAF personalized PDF hook v2 loaded", flush=True)
+    print("GREENLEAF personalized PDF hook v3 loaded", flush=True)
 except Exception as exc:
     print(f"GREENLEAF runtime hook not loaded: {type(exc).__name__}: {exc}", flush=True)
