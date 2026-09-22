@@ -147,3 +147,54 @@ def generate_business_card(data,photo_path=None,output_path=None):
 
     c.linkURL(ECOSYSTEM_URL,(260,260,770,390),relative=0)
     c.save(); return output_path
+
+
+# Telegram invitation materials hook.
+# card_generator is imported by bot.py on every startup, so this hook is loaded reliably.
+def _install_invitation_pdf_hook():
+    try:
+        from telegram import Message
+
+        # Avoid wrapping twice in environments that reload modules.
+        if getattr(Message.reply_text, "_greenleaf_invitation_pdf_hook", False):
+            return
+
+        original_reply_text = Message.reply_text
+        original_reply_document = Message.reply_document
+
+        async def reply_text_with_invitation_pdf(self, text, *args, **kwargs):
+            step = None
+            if isinstance(text, str):
+                if text.startswith("1️⃣ ПЕРВОЕ КАСАНИЕ"):
+                    step = 1
+                elif text.startswith("2️⃣ ВТОРОЕ КАСАНИЕ"):
+                    step = 2
+                elif text.startswith("3️⃣ ТРЕТЬЕ КАСАНИЕ") or text.startswith("3️⃣ ГОТОВОЕ ПРИГЛАШЕНИЕ"):
+                    step = 3
+
+            if step:
+                pdf_path = os.path.join(BASE, f"{step} шаг.pdf")
+                if os.path.exists(pdf_path):
+                    try:
+                        with open(pdf_path, "rb") as document:
+                            await original_reply_document(
+                                self,
+                                document=document,
+                                filename=f"{step} шаг.pdf",
+                                caption=f"💚 ШАГ {step} — готовый материал для приглашения.",
+                            )
+                    except Exception as exc:
+                        print(f"GREENLEAF invitation PDF error ({pdf_path}): {exc}")
+                else:
+                    print(f"GREENLEAF invitation PDF not found: {pdf_path}")
+
+            return await original_reply_text(self, text, *args, **kwargs)
+
+        reply_text_with_invitation_pdf._greenleaf_invitation_pdf_hook = True
+        Message.reply_text = reply_text_with_invitation_pdf
+        print("GREENLEAF invitation PDF hook installed")
+    except Exception as exc:
+        print(f"GREENLEAF invitation PDF hook install error: {exc}")
+
+
+_install_invitation_pdf_hook()
