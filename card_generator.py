@@ -16,7 +16,6 @@ TEMPLATE_FILE = "business_card_template.png.png"
 BRAND_LOGO_FILE = "ChatGPT Image 17 сент. 2026 г._ 19_12_45.png"
 W, H = 1024, 1536
 DARK = colors.HexColor("#073B32")
-GREEN = colors.HexColor("#075B3A")
 
 
 def _register_fonts():
@@ -101,10 +100,8 @@ def generate_business_card(data,photo_path=None,output_path=None):
     else:
         c.setFillColor(colors.HexColor("#F7FBF4")); c.rect(0,0,W,H,fill=1,stroke=0)
 
-    # Clean master: only dynamic content is added here.
     _cover_image(c,photo_path,67,1052,350,350,True)
 
-    # QR panel: cover only the template QR sample, keeping the designed panel around it.
     qr=qrcode.QRCode(version=None,box_size=8,border=2,error_correction=qrcode.constants.ERROR_CORRECT_H)
     qr.add_data(ECOSYSTEM_URL); qr.make(fit=True)
     qr_img=qr.make_image(fill_color="black",back_color="white").convert("RGB")
@@ -118,18 +115,24 @@ def generate_business_card(data,photo_path=None,output_path=None):
     c.setFillColor(DARK); _fit(c,name,78,925,560,43,FONT_BOLD,23)
 
     phone=(data.get("phone") or "").strip(); telegram=(data.get("telegram") or "").strip(); whatsapp=(data.get("whatsapp") or "").strip(); max_value=(data.get("max") or "").strip(); instagram=(data.get("instagram") or "").strip(); email=(data.get("email") or "").strip()
+
+    # Text begins safely to the right of the 96px icon zone in every contact card.
     fields=[
-        (145,651,315,70,"ТЕЛЕФОН",phone,"tel:"+phone.replace(" ","") if phone else ""),
-        (620,651,315,70,"WHATSAPP",whatsapp,_whatsapp_url(whatsapp)),
-        (145,543,315,70,"TELEGRAM",_short(telegram,"telegram"),_telegram_url(telegram)),
-        (620,543,315,70,"MAX",_short(max_value,"max"),_max_url(max_value)),
-        (145,435,315,70,"INSTAGRAM",_short(instagram,"instagram"),_instagram_url(instagram)),
-        (620,435,315,70,"E-MAIL",email,"mailto:"+email if email else ""),
+        (190,651,270,70,"ТЕЛЕФОН",phone,"tel:"+phone.replace(" ","") if phone else ""),
+        (666,651,270,70,"WHATSAPP",whatsapp,_whatsapp_url(whatsapp)),
+        (190,543,270,70,"TELEGRAM",_short(telegram,"telegram"),_telegram_url(telegram)),
+        (666,543,270,70,"MAX",_short(max_value,"max"),_max_url(max_value)),
+        (190,435,270,70,"INSTAGRAM",_short(instagram,"instagram"),_instagram_url(instagram)),
+        (666,435,270,70,"E-MAIL",email,"mailto:"+email if email else ""),
     ]
     for x,y,w,h,title,value,url in fields:
-        c.setFillColor(DARK); c.setFont(FONT_BOLD,15); c.drawString(x,y+38,title)
-        _fit(c,value,x,y+10,w-15,18,FONT,10)
-        if url: c.linkURL(url,(x-95,y-16,x+w+42,y+h+20),relative=0)
+        c.setFillColor(DARK)
+        c.setFont(FONT_BOLD,13)
+        c.drawString(x,y+39,title)
+        _fit(c,value,x,y+12,w-30,17,FONT,10)
+        if url:
+            # Whole visual card stays clickable, including its icon and arrow.
+            c.linkURL(url,(x-125,y-18,x+w+45,y+h+18),relative=0)
 
     c.linkURL(ECOSYSTEM_URL,(260,260,770,390),relative=0)
     c.save(); return output_path
