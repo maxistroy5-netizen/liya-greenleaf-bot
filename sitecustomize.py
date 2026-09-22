@@ -14,12 +14,16 @@ try:
 
     _original_reply_document = Message.reply_document
     _original_reply_text = Message.reply_text
+    _sender_by_chat = {}
 
     def _register_cyrillic_font():
-        font_name = "DejaVuSans"
+        font_name = "GreenleafSans"
         candidates = [
             "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-            "/usr/share/fonts/dejavu/DejaVuSans.ttf",
+            "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
+            "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
+            "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
+            "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
         ]
         for path in candidates:
             if os.path.exists(path):
@@ -28,17 +32,48 @@ try:
                     return font_name
                 except Exception:
                     pass
-        return "Helvetica"
+        # Last resort: search common font roots for a Unicode TTF.
+        for root in ("/usr/share/fonts", "/usr/local/share/fonts"):
+            if not os.path.isdir(root):
+                continue
+            for dirpath, _, filenames in os.walk(root):
+                for filename in filenames:
+                    low = filename.lower()
+                    if low in {"dejavusans.ttf", "notosans-regular.ttf", "freesans.ttf"}:
+                        path = os.path.join(dirpath, filename)
+                        try:
+                            pdfmetrics.registerFont(TTFont(font_name, path))
+                            return font_name
+                        except Exception:
+                            pass
+        raise RuntimeError("Cyrillic TrueType font was not found")
 
-    def _recipient_from_step1_text(text: str) -> str:
-        # invite_text() begins with: "Имя, привет!"
-        match = re.search(r"(?:сообщение:\s*)?\n*([^\n,]{1,40}),\s*привет!", text, re.IGNORECASE)
-        if match:
-            return match.group(1).strip()
-        return ""
+    def _recipient_from_text(text: str) -> str:
+        match = re.search(r"(?:сообщение:\s*)?\n*([^\n,]{1,60}),\s*привет!", text, re.IGNORECASE)
+        return match.group(1).strip() if match else ""
 
-    def _make_personalized_step1_pdf(recipient: str) -> str:
-        source_path = "1 шаг.pdf"
+    def _event_from_text(text: str):
+        date_match = re.search(r"📅\s*([^\n]+)", text)
+        time_match = re.search(r"🕙\s*([^\n]+)", text)
+        url_match = re.search(r"https?://[^\s]+", text)
+        return (
+            date_match.group(1).strip() if date_match else "",
+            time_match.group(1).strip() if time_match else "",
+            url_match.group(0).rstrip(".,;:!?") if url_match else "",
+        )
+
+    def _safe_name(value: str) -> str:
+        return re.sub(r"[^0-9A-Za-zА-Яа-яЁё_-]+", "_", value or "").strip("_") or "partner"
+
+    def _fit_text(c, text, font_name, max_size, min_size, max_width):
+        size = max_size
+        while size > min_size and pdfmetrics.stringWidth(text, font_name, size) > max_width:
+            size -= 0.5
+        c.setFont(font_name, size)
+        return size
+
+    def _make_personalized_pdf(step: int, recipient: str, sender: str = "", event_text: str = "") -> str:
+        source_path = f"{step} шаг.pdf"
         if not os.path.exists(source_path):
             raise FileNotFoundError(source_path)
 
@@ -46,27 +81,42 @@ try:
         page = reader.pages[0]
         width = float(page.mediabox.width)
         height = float(page.mediabox.height)
+        font_name = _register_cyrillic_font()
 
         overlay_buffer = io.BytesIO()
         c = canvas.Canvas(overlay_buffer, pagesize=(width, height))
-        font_name = _register_cyrillic_font()
+        green = (0.08, 0.34, 0.20)
+        c.setFillColorRGB(*green)
 
-        # The source design has a dedicated green name field after «Привет,».
-        # Coordinates are proportional so the placement remains stable if the
-        # PDF page dimensions differ from the preview dimensions.
-        x = width * 0.145
-        y = height * 0.802
-        field_width = width * 0.175
-        font_size = min(22, max(12, width * 0.020))
-        c.setFont(font_name, font_size)
-        c.setFillColorRGB(0.08, 0.34, 0.20)
+        recipient = (recipient or "").strip()
+        sender = (sender or "").strip()
 
-        name = (recipient or "").strip()
-        if name:
-            while font_size > 10 and pdfmetrics.stringWidth(name, font_name, font_size) > field_width:
-                font_size -= 1
-                c.setFont(font_name, font_size)
-            c.drawString(x, y, name)
+        # Personal recipient field. Kept compact so it works on all three branded templates.
+        if recipient:
+            label = f"Для: {recipient}"
+            _fit_text(c, label, font_name, min(20, width * 0.018), 9, width * 0.38)
+            c.drawString(width * 0.10, height * 0.90, label)
+
+        # Sender is remembered from the electronic business card created in the same chat.
+        if sender:
+            label = f"От: {sender}"
+            _fit_text(c, label, font_name, min(17, width * 0.015), 8, width * 0.38)
+            c.drawString(width * 0.10, height * 0.865, label)
+
+        if step == 3:
+            event_date, event_time, zoom_url = _event_from_text(event_text)
+            lines = []
+            if event_date:
+                lines.append(f"Дата: {event_date}")
+            if event_time:
+                lines.append(f"Время: {event_time}")
+            if zoom_url:
+                lines.append(f"Zoom: {zoom_url}")
+            y = height * 0.22
+            for line in lines:
+                _fit_text(c, line, font_name, min(15, width * 0.013), 7, width * 0.80)
+                c.drawString(width * 0.10, y, line)
+                y -= height * 0.035
 
         c.save()
         overlay_buffer.seek(0)
@@ -78,8 +128,7 @@ try:
         for extra_page in reader.pages[1:]:
             writer.add_page(extra_page)
 
-        safe_name = re.sub(r"[^0-9A-Za-zА-Яа-яЁё_-]+", "_", name).strip("_") or "partner"
-        output_path = os.path.join(tempfile.gettempdir(), f"GREENLEAF_Шаг_1_{safe_name}.pdf")
+        output_path = os.path.join(tempfile.gettempdir(), f"GREENLEAF_Шаг_{step}_{_safe_name(recipient)}.pdf")
         with open(output_path, "wb") as output:
             writer.write(output)
         return output_path
@@ -87,12 +136,15 @@ try:
     async def _reply_document_with_greenleaf_followup(self, *args, **kwargs):
         result = await _original_reply_document(self, *args, **kwargs)
         filename = kwargs.get("filename") or ""
-        if filename.startswith("GREENLEAF_") and filename.lower().endswith(".pdf") and "Шаг_1_" not in filename:
+        # Remember the partner's own name from GREENLEAF_<name>.pdf for later "От:" fields.
+        if filename.startswith("GREENLEAF_") and filename.lower().endswith(".pdf") and "Шаг_" not in filename:
+            stem = os.path.splitext(filename)[0]
+            sender = stem[len("GREENLEAF_"):].replace("_", " ").strip()
+            if sender:
+                _sender_by_chat[self.chat_id] = sender
+
             keyboard = ReplyKeyboardMarkup(
-                [
-                    ["🤝 3 шага приглашения партнёра"],
-                    ["⬅️ Главное меню"],
-                ],
+                [["🤝 3 шага приглашения партнёра"], ["⬅️ Главное меню"]],
                 resize_keyboard=True,
                 is_persistent=True,
             )
@@ -116,36 +168,30 @@ try:
                 step = 1
             elif text.startswith("2️⃣ ВТОРОЕ КАСАНИЕ"):
                 step = 2
-            elif text.startswith("3️⃣ ТРЕТЬЕ КАСАНИЕ"):
-                step = 3
+            elif text.startswith("3️⃣ ГОТОВОЕ ПРИГЛАШЕНИЕ") or text.startswith("3️⃣ ТРЕТЬЕ КАСАНИЕ"):
+                # Do not send the PDF for the prompt asking the user to paste Zoom details.
+                if "перешли сюда приглашение Zoom" not in text:
+                    step = 3
 
         if step:
             temp_pdf = None
             try:
-                if step == 1:
-                    recipient = _recipient_from_step1_text(text)
-                    temp_pdf = _make_personalized_step1_pdf(recipient)
-                    pdf_path = temp_pdf
-                    send_name = os.path.basename(temp_pdf)
-                    caption = f"💚 ШАГ 1 — персональный материал для {recipient}." if recipient else "💚 ШАГ 1 — персональный материал для приглашения."
-                else:
-                    pdf_path = f"{step} шаг.pdf"
-                    send_name = pdf_path
-                    caption = f"💚 ШАГ {step} — готовый материал для приглашения."
-
-                if os.path.exists(pdf_path):
-                    with open(pdf_path, "rb") as document:
-                        await _original_reply_document(
-                            self,
-                            document=document,
-                            filename=send_name,
-                            caption=caption,
-                        )
-                else:
-                    print(f"GREENLEAF invitation PDF not found: {pdf_path}")
+                recipient = _recipient_from_text(text)
+                sender = _sender_by_chat.get(self.chat_id, "")
+                temp_pdf = _make_personalized_pdf(step, recipient, sender, text)
+                with open(temp_pdf, "rb") as document:
+                    await _original_reply_document(
+                        self,
+                        document=document,
+                        filename=os.path.basename(temp_pdf),
+                        caption=(
+                            f"💚 ШАГ {step} — персональный материал для {recipient}."
+                            if recipient else f"💚 ШАГ {step} — персональный материал для приглашения."
+                        ),
+                    )
             except Exception as exc:
-                print(f"GREENLEAF invitation PDF error (step {step}): {exc}")
-                # If personalization fails, do not break the invitation flow.
+                print(f"GREENLEAF personalized invitation PDF error (step {step}): {exc}")
+                # Keep the flow alive, but make the failure obvious in Render logs.
                 fallback = f"{step} шаг.pdf"
                 if os.path.exists(fallback):
                     try:
@@ -154,7 +200,7 @@ try:
                                 self,
                                 document=document,
                                 filename=fallback,
-                                caption=f"💚 ШАГ {step} — готовый материал для приглашения.",
+                                caption=f"💚 ШАГ {step} — шаблон. Персонализация PDF временно не сработала.",
                             )
                     except Exception as fallback_exc:
                         print(f"GREENLEAF fallback PDF error ({fallback}): {fallback_exc}")
