@@ -406,6 +406,7 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             "3️⃣ ГОТОВОЕ ПРИГЛАШЕНИЕ\n\n" + text + "\n\n💚 Три касания готовы. Главное — не давить, а вести человека спокойно от знакомства к диалогу.",
             reply_markup=INVITE_STEP3_KEYBOARD,
+            disable_web_page_preview=True,
         )
         return
 
