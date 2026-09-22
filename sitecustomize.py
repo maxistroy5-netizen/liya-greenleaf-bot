@@ -62,15 +62,23 @@ try:
             size -= 1
         return ImageFont.truetype(font_path, min_size)
 
+    def _draw_centered(draw, text, font_path, box_xy, start_size, min_size, fill):
+        left, top, right, bottom = box_xy
+        bw, bh = right-left, bottom-top
+        font = _fit_pil_font(draw, text, font_path, start_size, min_size, int(bw * 0.88))
+        tb = draw.textbbox((0, 0), text, font=font)
+        tw, th = tb[2]-tb[0], tb[3]-tb[1]
+        x = left + (bw-tw)/2 - tb[0]
+        y = top + (bh-th)/2 - tb[1]
+        draw.text((x, y), text, font=font, fill=fill)
+
     def _make_personalized_pdf(step: int, recipient: str, sender: str = "", event_text: str = "") -> str:
         source_path = f"{step} шаг.pdf"
         if not os.path.exists(source_path):
             raise FileNotFoundError(source_path)
-
         recipient = (recipient or "").strip()
         sender = (sender or "").strip()
         font_path = _font_path()
-
         src = fitz.open(source_path)
         src_page = src[0]
         pix = src_page.get_pixmap(matrix=fitz.Matrix(2.0, 2.0), alpha=False)
@@ -80,50 +88,41 @@ try:
         green = (20, 77, 46)
 
         if recipient:
-            # Exact designed blank field after «Привет,». Center the name both
-            # horizontally and vertically instead of anchoring it to the top-left.
-            field_left = int(w * 0.143)
-            field_top = int(h * 0.174)
-            field_right = int(w * 0.319)
-            field_bottom = int(h * 0.226)
-            field_w = field_right - field_left
-            field_h = field_bottom - field_top
-            font = _fit_pil_font(draw, recipient, font_path, max(18, int(w * 0.018)), 13, int(field_w * 0.88))
-            box = draw.textbbox((0, 0), recipient, font=font)
-            text_w = box[2] - box[0]
-            text_h = box[3] - box[1]
-            x = field_left + (field_w - text_w) / 2 - box[0]
-            y = field_top + (field_h - text_h) / 2 - box[1]
-            draw.text((x, y), recipient, font=font, fill=green)
+            if step == 1:
+                field = (int(w*.143), int(h*.174), int(w*.319), int(h*.226))
+            elif step == 2:
+                # Top recipient box in the actual step-2 artwork.
+                field = (int(w*.133), int(h*.183), int(w*.538), int(h*.235))
+            else:
+                field = (int(w*.143), int(h*.174), int(w*.319), int(h*.226))
+            _draw_centered(draw, recipient, font_path, field, max(18,int(w*.018)), 13, green)
+
+        if step == 2 and sender:
+            # Signature field beside the person icon at the bottom of step 2.
+            sender_field = (int(w*.225), int(h*.742), int(w*.610), int(h*.790))
+            _draw_centered(draw, sender, font_path, sender_field, max(16,int(w*.016)), 12, green)
 
         if step == 3:
             event_date, event_time, zoom_url = _event_from_text(event_text)
             lines = []
-            if event_date:
-                lines.append(f"Дата: {event_date}")
-            if event_time:
-                lines.append(f"Время: {event_time}")
-            if zoom_url:
-                lines.append(f"Zoom: {zoom_url}")
+            if event_date: lines.append(f"Дата: {event_date}")
+            if event_time: lines.append(f"Время: {event_time}")
+            if zoom_url: lines.append(f"Zoom: {zoom_url}")
             y = int(h * 0.72)
             for line in lines:
-                font = _fit_pil_font(draw, line, font_path, max(16, int(w * 0.015)), 11, int(w * 0.80))
-                draw.text((int(w * 0.10), y), line, font=font, fill=green)
-                y += int(h * 0.038)
+                font = _fit_pil_font(draw, line, font_path, max(16,int(w*.015)), 11, int(w*.80))
+                draw.text((int(w*.10), y), line, font=font, fill=green)
+                y += int(h*.038)
 
         png_buffer = io.BytesIO()
         image.save(png_buffer, format="PNG", optimize=True)
-        png_bytes = png_buffer.getvalue()
-
         out_doc = fitz.open()
         rect = src_page.rect
         out_page = out_doc.new_page(width=rect.width, height=rect.height)
-        out_page.insert_image(out_page.rect, stream=png_bytes)
-
+        out_page.insert_image(out_page.rect, stream=png_buffer.getvalue())
         output_path = os.path.join(tempfile.gettempdir(), f"GREENLEAF_Шаг_{step}_{_safe_name(recipient)}.pdf")
         out_doc.save(output_path, garbage=4, deflate=True)
-        out_doc.close()
-        src.close()
+        out_doc.close(); src.close()
         return output_path
 
     async def _reply_document_with_greenleaf_followup(self, *args, **kwargs):
@@ -139,13 +138,9 @@ try:
     async def _reply_text_with_invitation_pdf(self, text, *args, **kwargs):
         step = None
         if isinstance(text, str):
-            if text.startswith("1️⃣ ПЕРВОЕ КАСАНИЕ"):
-                step = 1
-            elif text.startswith("2️⃣ ВТОРОЕ КАСАНИЕ"):
-                step = 2
-            elif text.startswith("3️⃣ ГОТОВОЕ ПРИГЛАШЕНИЕ"):
-                step = 3
-
+            if text.startswith("1️⃣ ПЕРВОЕ КАСАНИЕ"): step = 1
+            elif text.startswith("2️⃣ ВТОРОЕ КАСАНИЕ"): step = 2
+            elif text.startswith("3️⃣ ГОТОВОЕ ПРИГЛАШЕНИЕ"): step = 3
         if step:
             temp_pdf = None
             try:
@@ -153,29 +148,18 @@ try:
                 sender = _sender_by_chat.get(self.chat_id, "")
                 temp_pdf = _make_personalized_pdf(step, recipient, sender, text)
                 with open(temp_pdf, "rb") as document:
-                    await _original_reply_document(
-                        self,
-                        document=document,
-                        filename=os.path.basename(temp_pdf),
-                        caption=f"💚 ШАГ {step} — персональный PDF для {recipient or 'приглашения'}.",
-                    )
+                    await _original_reply_document(self, document=document, filename=os.path.basename(temp_pdf), caption=f"💚 ШАГ {step} — персональный PDF для {recipient or 'приглашения'}.")
             except Exception as exc:
                 print(f"GREENLEAF PDF PERSONALIZATION FAILED step={step}: {type(exc).__name__}: {exc}", flush=True)
-                await _original_reply_text(
-                    self,
-                    f"⚠️ Не удалось персонализировать PDF шага {step}. Пустой шаблон не отправляю. Ошибка записана в Render Logs.",
-                )
+                await _original_reply_text(self, f"⚠️ Не удалось персонализировать PDF шага {step}. Пустой шаблон не отправляю. Ошибка записана в Render Logs.")
             finally:
                 if temp_pdf and os.path.exists(temp_pdf):
-                    try:
-                        os.remove(temp_pdf)
-                    except OSError:
-                        pass
-
+                    try: os.remove(temp_pdf)
+                    except OSError: pass
         return await _original_reply_text(self, text, *args, **kwargs)
 
     Message.reply_document = _reply_document_with_greenleaf_followup
     Message.reply_text = _reply_text_with_invitation_pdf
-    print("GREENLEAF flattened personalized PDF hook v7 centered-name loaded", flush=True)
+    print("GREENLEAF personalized PDF hook v8 step2 fields loaded", flush=True)
 except Exception as exc:
     print(f"GREENLEAF runtime hook not loaded: {type(exc).__name__}: {exc}", flush=True)
