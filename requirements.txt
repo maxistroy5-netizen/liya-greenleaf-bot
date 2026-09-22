@@ -3,3 +3,4 @@ openai
 reportlab
 qrcode[pil]
 Pillow
+pypdf
