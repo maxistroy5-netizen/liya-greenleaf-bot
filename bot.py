@@ -165,6 +165,43 @@ def card_summary(data: dict) -> str:
     )
 
 
+def extract_zoom_event(event_info: str) -> tuple[str, str, str]:
+    text = event_info.strip()
+    urls = URL_RE.findall(text)
+    zoom_url = ""
+    for raw in urls:
+        candidate = raw.rstrip(".,;:!?")
+        if "zoom.us/j/" in candidate or "zoom.us/w/" in candidate:
+            zoom_url = candidate
+            break
+    if not zoom_url and urls:
+        zoom_url = urls[0].rstrip(".,;:!?")
+
+    date_text = ""
+    patterns = [
+        r"\b(\d{1,2}[./-]\d{1,2}[./-]\d{2,4})\b",
+        r"\b(\d{1,2}\s+(?:января|февраля|марта|апреля|мая|июня|июля|августа|сентября|октября|ноября|декабря)(?:\s+\d{4})?)\b",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            date_text = match.group(1)
+            break
+
+    time_text = ""
+    time_patterns = [
+        r"(?i)(?:время|time)\s*[:：]?\s*(?:\d{1,2}\s+\S+\s+\d{4}\s+)?(\d{1,2}:\d{2})(?:\s*(?:AM|PM))?",
+        r"\b(\d{1,2}:\d{2})\b",
+    ]
+    for pattern in time_patterns:
+        match = re.search(pattern, text)
+        if match:
+            time_text = match.group(1)
+            break
+
+    return date_text, time_text, zoom_url
+
+
 def invite_text(step: int, name: str, event_info: str = "") -> str:
     name = name.strip() or ""
     hello = f"{name}, привет!" if name else "Привет!"
@@ -176,9 +213,21 @@ def invite_text(step: int, name: str, event_info: str = "") -> str:
         )
     if step == 2:
         return f"{hello} 😊 Как твои впечатления от нашей корпорации? Что тебе откликнулось или заинтересовало больше всего?"
+
+    event_date, event_time, zoom_url = extract_zoom_event(event_info)
+    details = []
+    if event_date:
+        details.append(f"📅 {event_date}")
+    details.append(f"🕙 {event_time or '10:00'} по Москве")
+    if zoom_url:
+        details.append(f"🔗 Подключиться к Zoom:\n{zoom_url}")
+
     return (
-        f"{hello} 💚 Хочу пригласить тебя на наш субботний онлайн-эфир. Это хороший способ спокойно посмотреть, как всё устроено, "
-        f"услышать информацию и задать вопросы. Начало в 10:00 по Москве.\n\n{event_info.strip()}"
+        f"{hello} 💚\n"
+        "Приглашаю тебя на нашу субботнюю встречу.\n\n"
+        + "\n".join(details)
+        + "\n\nБудет возможность спокойно посмотреть, как всё устроено, услышать информацию и задать свои вопросы.\n\n"
+        "Буду рада видеть тебя! 💚"
     ).strip()
 
 
@@ -342,7 +391,7 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user_text == "➡️ Шаг 3" and invite_step == "step2_ready":
         context.user_data["invite_step"] = "event_info"
         await update.message.reply_text(
-            "3️⃣ ТРЕТЬЕ КАСАНИЕ\n\nТеперь приглашение на субботний эфир в 10:00 по Москве.\n\nНапиши одним сообщением актуальную дату эфира и ссылку Zoom. Например:\n28 сентября\nhttps://...",
+            "3️⃣ ТРЕТЬЕ КАСАНИЕ\n\nТеперь просто перешли сюда приглашение Zoom целиком. Лия сама возьмёт из него дату, время и основную ссылку входа, а технические данные уберёт.",
             reply_markup=ReplyKeyboardMarkup([["⬅️ Главное меню"]], resize_keyboard=True, is_persistent=True),
         )
         return
