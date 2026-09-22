@@ -81,22 +81,15 @@ try:
         recipient = (recipient or "").strip()
         sender = (sender or "").strip()
 
-        # DIAGNOSTIC: make the overlay impossible to miss. This tells us whether
-        # ReportLab -> pypdf merging is visible in Telegram's PDF viewer at all.
-        diagnostic_text = recipient.upper() if recipient else "ТЕСТ PDF"
-        c.setFillColorRGB(0.85, 0.0, 0.0)
-        _fit_text(c, diagnostic_text, font_name, min(54, width * 0.08), 24, width * 0.80)
-        text_width = pdfmetrics.stringWidth(diagnostic_text, font_name, c._fontsize)
-        c.drawString(max(width * 0.05, (width - text_width) / 2), height * 0.50, diagnostic_text)
-
-        # Keep the intended name placement too, so after the diagnostic succeeds
-        # we only need to tune its exact coordinates.
+        # Final placement: recipient goes into the designed blank field after «Привет,».
+        # The previous large red diagnostic overlay has been removed now that merging is confirmed.
         if recipient:
-            c.setFillColorRGB(0.08, 0.34, 0.20)
-            x, y, max_w = width * 0.185, height * 0.815, width * 0.235
-            _fit_text(c, recipient, font_name, min(20, width * 0.018), 9, max_w)
+            c.setFillColorRGB(0.08, 0.30, 0.18)
+            x, y, max_w = width * 0.200, height * 0.806, width * 0.215
+            _fit_text(c, recipient, font_name, min(18, width * 0.017), 8, max_w)
             c.drawString(x, y, recipient)
 
+        # Step 3 additionally receives the current Zoom date/time/link.
         if step == 3:
             event_date, event_time, zoom_url = _event_from_text(event_text)
             lines = []
@@ -107,7 +100,7 @@ try:
             if zoom_url:
                 lines.append(f"Zoom: {zoom_url}")
             y = height * 0.24
-            c.setFillColorRGB(0.08, 0.34, 0.20)
+            c.setFillColorRGB(0.08, 0.30, 0.18)
             for line in lines:
                 _fit_text(c, line, font_name, min(15, width * 0.014), 7, width * 0.80)
                 c.drawString(width * 0.10, y, line)
@@ -159,7 +152,7 @@ try:
                         self,
                         document=document,
                         filename=os.path.basename(temp_pdf),
-                        caption=f"🧪 ТЕСТ PDF ШАГ {step} — открой файл и проверь крупную красную надпись {recipient.upper() if recipient else 'ТЕСТ PDF'} по центру.",
+                        caption=f"💚 ШАГ {step} — персональный PDF для {recipient or 'приглашения'}.",
                     )
             except Exception as exc:
                 print(f"GREENLEAF PDF PERSONALIZATION FAILED step={step}: {type(exc).__name__}: {exc}", flush=True)
@@ -178,6 +171,6 @@ try:
 
     Message.reply_document = _reply_document_with_greenleaf_followup
     Message.reply_text = _reply_text_with_invitation_pdf
-    print("GREENLEAF personalized PDF hook diagnostic v4 loaded", flush=True)
+    print("GREENLEAF personalized PDF hook final v5 loaded", flush=True)
 except Exception as exc:
     print(f"GREENLEAF runtime hook not loaded: {type(exc).__name__}: {exc}", flush=True)
