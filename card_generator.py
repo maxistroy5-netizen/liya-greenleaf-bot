@@ -52,6 +52,9 @@ def _max_url(value):
     value=(value or "").strip()
     if value.startswith(("http://","https://")): return value
     return "https://max.ru/"+quote(value.lstrip("@")) if value else ""
+def _email_url(value):
+    value=(value or "").strip()
+    return "https://mail.google.com/mail/?view=cm&fs=1&to="+quote(value) if value else ""
 def _short(value,kind):
     value=(value or "").strip()
     if not value: return ""
@@ -135,7 +138,7 @@ def generate_business_card(data,photo_path=None,output_path=None):
         (190,543,270,70,"TELEGRAM",_short(telegram,"telegram"),_telegram_url(telegram)),
         (666,543,270,70,"MAX",_short(max_value,"max"),_max_url(max_value)),
         (190,435,270,70,"INSTAGRAM",_short(instagram,"instagram"),_instagram_url(instagram)),
-        (666,435,270,70,"E-MAIL",email,"mailto:"+email if email else ""),
+        (666,435,270,70,"E-MAIL",email,_email_url(email)),
     ]
     for x,y,w,h,title,value,url in fields:
         c.setFillColor(DARK); c.setFont(FONT_BOLD,13); c.drawString(x,y+39,title)
