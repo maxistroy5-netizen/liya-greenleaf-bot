@@ -71,9 +71,6 @@ try:
         sender = (sender or "").strip()
         font_path = _font_path()
 
-        # Render the original PDF page to pixels first. All personalization is then
-        # painted directly into those pixels, so Telegram/Windows/iPhone cannot hide
-        # the name as a separate PDF text layer.
         src = fitz.open(source_path)
         src_page = src[0]
         pix = src_page.get_pixmap(matrix=fitz.Matrix(2.0, 2.0), alpha=False)
@@ -83,10 +80,20 @@ try:
         green = (20, 77, 46)
 
         if recipient:
-            x = int(w * 0.200)
-            y = int(h * 0.183)
-            max_w = int(w * 0.215)
-            font = _fit_pil_font(draw, recipient, font_path, max(18, int(w * 0.018)), 13, max_w)
+            # Exact designed blank field after «Привет,». Center the name both
+            # horizontally and vertically instead of anchoring it to the top-left.
+            field_left = int(w * 0.143)
+            field_top = int(h * 0.174)
+            field_right = int(w * 0.319)
+            field_bottom = int(h * 0.226)
+            field_w = field_right - field_left
+            field_h = field_bottom - field_top
+            font = _fit_pil_font(draw, recipient, font_path, max(18, int(w * 0.018)), 13, int(field_w * 0.88))
+            box = draw.textbbox((0, 0), recipient, font=font)
+            text_w = box[2] - box[0]
+            text_h = box[3] - box[1]
+            x = field_left + (field_w - text_w) / 2 - box[0]
+            y = field_top + (field_h - text_h) / 2 - box[1]
             draw.text((x, y), recipient, font=font, fill=green)
 
         if step == 3:
@@ -104,8 +111,6 @@ try:
                 draw.text((int(w * 0.10), y), line, font=font, fill=green)
                 y += int(h * 0.038)
 
-        # Build a brand-new PDF whose page is the already-personalized image.
-        # This intentionally flattens the text into the artwork.
         png_buffer = io.BytesIO()
         image.save(png_buffer, format="PNG", optimize=True)
         png_bytes = png_buffer.getvalue()
@@ -171,6 +176,6 @@ try:
 
     Message.reply_document = _reply_document_with_greenleaf_followup
     Message.reply_text = _reply_text_with_invitation_pdf
-    print("GREENLEAF flattened personalized PDF hook v6 loaded", flush=True)
+    print("GREENLEAF flattened personalized PDF hook v7 centered-name loaded", flush=True)
 except Exception as exc:
     print(f"GREENLEAF runtime hook not loaded: {type(exc).__name__}: {exc}", flush=True)
