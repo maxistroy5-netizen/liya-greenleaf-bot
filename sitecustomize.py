@@ -6,20 +6,15 @@ import re
 import tempfile
 
 try:
+    import fitz
+    from PIL import Image, ImageDraw, ImageFont
     from telegram import Message
-    from reportlab.pdfgen import canvas
-    from reportlab.pdfbase import pdfmetrics
-    from reportlab.pdfbase.ttfonts import TTFont
-    from pypdf import PdfReader, PdfWriter
 
     _original_reply_document = Message.reply_document
     _original_reply_text = Message.reply_text
     _sender_by_chat = {}
 
-    def _register_cyrillic_font():
-        font_name = "GreenleafSans"
-        if font_name in pdfmetrics.getRegisteredFontNames():
-            return font_name
+    def _font_path():
         candidates = [
             "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
             "/usr/share/fonts/dejavu/DejaVuSans.ttf",
@@ -30,8 +25,7 @@ try:
         ]
         for path in candidates:
             if os.path.exists(path):
-                pdfmetrics.registerFont(TTFont(font_name, path))
-                return font_name
+                return path
         raise RuntimeError("Cyrillic TrueType font was not found on Render")
 
     def _recipient_from_text(text: str) -> str:
@@ -58,38 +52,43 @@ try:
     def _safe_name(value: str) -> str:
         return re.sub(r"[^0-9A-Za-zА-Яа-яЁё_-]+", "_", value or "").strip("_") or "partner"
 
-    def _fit_text(c, text, font_name, max_size, min_size, max_width):
-        size = max_size
-        while size > min_size and pdfmetrics.stringWidth(text, font_name, size) > max_width:
-            size -= 0.5
-        c.setFont(font_name, size)
+    def _fit_pil_font(draw, text, font_path, start_size, min_size, max_width):
+        size = start_size
+        while size > min_size:
+            font = ImageFont.truetype(font_path, size)
+            box = draw.textbbox((0, 0), text, font=font)
+            if box[2] - box[0] <= max_width:
+                return font
+            size -= 1
+        return ImageFont.truetype(font_path, min_size)
 
     def _make_personalized_pdf(step: int, recipient: str, sender: str = "", event_text: str = "") -> str:
         source_path = f"{step} шаг.pdf"
         if not os.path.exists(source_path):
             raise FileNotFoundError(source_path)
 
-        reader = PdfReader(source_path)
-        page = reader.pages[0]
-        width = float(page.mediabox.width)
-        height = float(page.mediabox.height)
-        font_name = _register_cyrillic_font()
-
-        overlay_buffer = io.BytesIO()
-        c = canvas.Canvas(overlay_buffer, pagesize=(width, height))
-
         recipient = (recipient or "").strip()
         sender = (sender or "").strip()
+        font_path = _font_path()
 
-        # Final placement: recipient goes into the designed blank field after «Привет,».
-        # The previous large red diagnostic overlay has been removed now that merging is confirmed.
+        # Render the original PDF page to pixels first. All personalization is then
+        # painted directly into those pixels, so Telegram/Windows/iPhone cannot hide
+        # the name as a separate PDF text layer.
+        src = fitz.open(source_path)
+        src_page = src[0]
+        pix = src_page.get_pixmap(matrix=fitz.Matrix(2.0, 2.0), alpha=False)
+        image = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
+        draw = ImageDraw.Draw(image)
+        w, h = image.size
+        green = (20, 77, 46)
+
         if recipient:
-            c.setFillColorRGB(0.08, 0.30, 0.18)
-            x, y, max_w = width * 0.200, height * 0.806, width * 0.215
-            _fit_text(c, recipient, font_name, min(18, width * 0.017), 8, max_w)
-            c.drawString(x, y, recipient)
+            x = int(w * 0.200)
+            y = int(h * 0.183)
+            max_w = int(w * 0.215)
+            font = _fit_pil_font(draw, recipient, font_path, max(18, int(w * 0.018)), 13, max_w)
+            draw.text((x, y), recipient, font=font, fill=green)
 
-        # Step 3 additionally receives the current Zoom date/time/link.
         if step == 3:
             event_date, event_time, zoom_url = _event_from_text(event_text)
             lines = []
@@ -99,26 +98,27 @@ try:
                 lines.append(f"Время: {event_time}")
             if zoom_url:
                 lines.append(f"Zoom: {zoom_url}")
-            y = height * 0.24
-            c.setFillColorRGB(0.08, 0.30, 0.18)
+            y = int(h * 0.72)
             for line in lines:
-                _fit_text(c, line, font_name, min(15, width * 0.014), 7, width * 0.80)
-                c.drawString(width * 0.10, y, line)
-                y -= height * 0.038
+                font = _fit_pil_font(draw, line, font_path, max(16, int(w * 0.015)), 11, int(w * 0.80))
+                draw.text((int(w * 0.10), y), line, font=font, fill=green)
+                y += int(h * 0.038)
 
-        c.save()
-        overlay_buffer.seek(0)
-        overlay_page = PdfReader(overlay_buffer).pages[0]
-        page.merge_page(overlay_page, over=True)
+        # Build a brand-new PDF whose page is the already-personalized image.
+        # This intentionally flattens the text into the artwork.
+        png_buffer = io.BytesIO()
+        image.save(png_buffer, format="PNG", optimize=True)
+        png_bytes = png_buffer.getvalue()
 
-        writer = PdfWriter()
-        writer.add_page(page)
-        for extra_page in reader.pages[1:]:
-            writer.add_page(extra_page)
+        out_doc = fitz.open()
+        rect = src_page.rect
+        out_page = out_doc.new_page(width=rect.width, height=rect.height)
+        out_page.insert_image(out_page.rect, stream=png_bytes)
 
         output_path = os.path.join(tempfile.gettempdir(), f"GREENLEAF_Шаг_{step}_{_safe_name(recipient)}.pdf")
-        with open(output_path, "wb") as output:
-            writer.write(output)
+        out_doc.save(output_path, garbage=4, deflate=True)
+        out_doc.close()
+        src.close()
         return output_path
 
     async def _reply_document_with_greenleaf_followup(self, *args, **kwargs):
@@ -171,6 +171,6 @@ try:
 
     Message.reply_document = _reply_document_with_greenleaf_followup
     Message.reply_text = _reply_text_with_invitation_pdf
-    print("GREENLEAF personalized PDF hook final v5 loaded", flush=True)
+    print("GREENLEAF flattened personalized PDF hook v6 loaded", flush=True)
 except Exception as exc:
     print(f"GREENLEAF runtime hook not loaded: {type(exc).__name__}: {exc}", flush=True)
