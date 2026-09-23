@@ -68,7 +68,9 @@ try:
             else: field=(int(w*.143),int(h*.174),int(w*.319),int(h*.226))
             _draw_centered(draw,recipient,font_path,field,max(18,int(w*.018)),13,green)
         if step==2 and sender:
-            sender_field=(int(w*.178),int(h*.796),int(w*.463),int(h*.827))
+            # Put the sender well inside the long white field beside the green profile icon.
+            # Kept separate from the handwritten decorative text below the field.
+            sender_field=(int(w*.178),int(h*.758),int(w*.463),int(h*.790))
             _draw_centered(draw,sender,font_path,sender_field,max(16,int(w*.014)),11,green)
         if step==3:
             event_date,event_time,zoom_url=_event_from_text(event_text); lines=[]
@@ -127,6 +129,6 @@ try:
         return await _original_reply_text(self,text,*args,**kwargs)
 
     Message.reply_document=_reply_document_with_greenleaf_followup; Message.reply_text=_reply_text_with_invitation_pdf
-    print("GREENLEAF personalized PDF hook v13 + suppress Erika stray followup loaded",flush=True)
+    print("GREENLEAF personalized PDF hook v14 step2 sender moved into white field",flush=True)
 except Exception as exc:
     print(f"GREENLEAF runtime hook not loaded: {type(exc).__name__}: {exc}",flush=True)
