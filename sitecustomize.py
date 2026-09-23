@@ -64,12 +64,12 @@ try:
         image=Image.frombytes("RGB",(pix.width,pix.height),pix.samples); draw=ImageDraw.Draw(image); w,h=image.size; green=(20,77,46)
         if recipient:
             if step==1: field=(int(w*.143),int(h*.174),int(w*.319),int(h*.226))
-            elif step==2: field=(int(w*.253),int(h*.178),int(w*.414),int(h*.215))
+            elif step==2: field=(int(w*.103),int(h*.178),int(w*.414),int(h*.230))
             else: field=(int(w*.143),int(h*.174),int(w*.319),int(h*.226))
             _draw_centered(draw,recipient,font_path,field,max(18,int(w*.018)),13,green)
         if step==2 and sender:
-            # Center sender inside the long white signature field, safely above its lower border.
-            sender_field=(int(w*.178),int(h*.724),int(w*.463),int(h*.750))
+            # Center sender in the full visible white signature field beside the green profile icon.
+            sender_field=(int(w*.174),int(h*.724),int(w*.467),int(h*.766))
             _draw_centered(draw,sender,font_path,sender_field,max(16,int(w*.014)),11,green)
         if step==3:
             event_date,event_time,zoom_url=_event_from_text(event_text); lines=[]
@@ -128,6 +128,6 @@ try:
         return await _original_reply_text(self,text,*args,**kwargs)
 
     Message.reply_document=_reply_document_with_greenleaf_followup; Message.reply_text=_reply_text_with_invitation_pdf
-    print("GREENLEAF personalized PDF hook v15 step2 sender centered inside signature field",flush=True)
+    print("GREENLEAF personalized PDF hook v16 precise step2 field centering",flush=True)
 except Exception as exc:
     print(f"GREENLEAF runtime hook not loaded: {type(exc).__name__}: {exc}",flush=True)
