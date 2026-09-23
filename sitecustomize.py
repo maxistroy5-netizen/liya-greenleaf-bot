@@ -87,16 +87,16 @@ try:
             if step == 1:
                 field = (int(w*.143), int(h*.174), int(w*.319), int(h*.226))
             elif step == 2:
-                # The visible top white name box in the second template.
                 field = (int(w*.253), int(h*.178), int(w*.414), int(h*.215))
             else:
                 field = (int(w*.143), int(h*.174), int(w*.319), int(h*.226))
             _draw_centered(draw, recipient, font_path, field, max(18,int(w*.018)), 13, green)
 
         if step == 2 and sender:
-            # The long white sender box next to the green profile icon.
-            field = (int(w*.174), int(h*.810), int(w*.467), int(h*.844))
-            _draw_centered(draw, sender, font_path, field, max(14,int(w*.013)), 10, green)
+            # Sender belongs inside the long white box beside the green profile icon.
+            # This box is visibly higher than the previous coordinate used in v11.
+            sender_field = (int(w*.178), int(h*.796), int(w*.463), int(h*.827))
+            _draw_centered(draw, sender, font_path, sender_field, max(16,int(w*.014)), 11, green)
 
         if step == 3:
             event_date, event_time, zoom_url = _event_from_text(event_text)
@@ -186,6 +186,6 @@ try:
 
     Message.reply_document = _reply_document_with_greenleaf_followup
     Message.reply_text = _reply_text_with_invitation_pdf
-    print("GREENLEAF personalized PDF hook v11 step2 fields + strict stray suppression loaded", flush=True)
+    print("GREENLEAF personalized PDF hook v12 step2 sender field corrected", flush=True)
 except Exception as exc:
     print(f"GREENLEAF runtime hook not loaded: {type(exc).__name__}: {exc}", flush=True)
