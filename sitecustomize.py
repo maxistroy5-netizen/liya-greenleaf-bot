@@ -90,7 +90,6 @@ try:
         png_buffer=io.BytesIO(); image.save(png_buffer,format="PNG",optimize=True); out_doc=fitz.open(); rect=src_page.rect
         out_page=out_doc.new_page(width=rect.width,height=rect.height); out_page.insert_image(out_page.rect,stream=png_buffer.getvalue())
         if step==3 and zoom_url:
-            # Make the visible Zoom button clickable without printing the long technical URL.
             link_rect=fitz.Rect(rect.width*.142,rect.height*.817,rect.width*.421,rect.height*.862)
             out_page.insert_link({"kind":fitz.LINK_URI,"from":link_rect,"uri":zoom_url})
         output_path=os.path.join(tempfile.gettempdir(),f"GREENLEAF_Шаг_{step}_{_safe_name(recipient)}.pdf")
@@ -114,6 +113,15 @@ try:
         stray_fragments=("переходим к шагу 2","готова перейти к шагу 2","готов перейти к шагу 2","в истории диалога нет","нет содержания шага 1","уточните, пожалуйста, какое обучение","уточните, пожалуйста, к какому обучению","какую тему или задание мы разбираем","какое обучение или задание вы проходите","что вы хотите узнать об эрике","что хотите узнать об эрике")
         return any(fragment in n for fragment in stray_fragments)
 
+    def _add_yutta_to_step3(text: str) -> str:
+        if "Ютта Гай" in text:
+            return text
+        trainer = "🎓 Обучение проводит Ютта Гай — ТОП-лидер нашей команды, доктор и клинический психолог."
+        marker = "\n\nБудет возможность спокойно посмотреть"
+        if marker in text:
+            return text.replace(marker, "\n\n" + trainer + marker, 1)
+        return text + "\n\n" + trainer
+
     async def _reply_text_with_invitation_pdf(self,text,*args,**kwargs):
         if isinstance(text,str) and _is_stray_step_reply(text):
             print(f"GREENLEAF suppressed stray step reply: {text[:120]!r}",flush=True); return None
@@ -121,7 +129,9 @@ try:
         if isinstance(text,str):
             if text.startswith("1️⃣ ПЕРВОЕ КАСАНИЕ"): step=1
             elif text.startswith("2️⃣ ВТОРОЕ КАСАНИЕ"): step=2
-            elif text.startswith("3️⃣ ГОТОВОЕ ПРИГЛАШЕНИЕ"): step=3
+            elif text.startswith("3️⃣ ГОТОВОЕ ПРИГЛАШЕНИЕ"):
+                step=3
+                text=_add_yutta_to_step3(text)
         if step:
             temp_pdf=None
             try:
@@ -140,6 +150,6 @@ try:
         return await _original_reply_text(self,text,*args,**kwargs)
 
     Message.reply_document=_reply_document_with_greenleaf_followup; Message.reply_text=_reply_text_with_invitation_pdf
-    print("GREENLEAF personalized PDF hook v17 step3 mapped fields and clickable Zoom",flush=True)
+    print("GREENLEAF personalized PDF hook v18 step3 Yutta trainer line",flush=True)
 except Exception as exc:
     print(f"GREENLEAF runtime hook not loaded: {type(exc).__name__}: {exc}",flush=True)
