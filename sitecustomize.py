@@ -145,9 +145,6 @@ try:
             print(f"GREENLEAF suppressed duplicate step={step} recipient={recipient!r}",flush=True)
             return None
 
-        # Important: send the usable invitation text immediately. PDF rendering must never
-        # block the bot's answer, especially on step 3 where the clickable Zoom link is added.
-        result = await _original_reply_text(self,text,*args,**kwargs)
         temp_pdf=None
         try:
             sender=_sender_by_chat.get(self.chat_id,"") or _telegram_sender_name(self)
@@ -157,15 +154,16 @@ try:
                 await _original_reply_document(self,document=document,filename=os.path.basename(temp_pdf),caption=f"💚 ШАГ {step} — персональный PDF для {recipient or 'приглашения'}.")
         except Exception as exc:
             print(f"GREENLEAF PDF PERSONALIZATION FAILED step={step}: {type(exc).__name__}: {exc}",flush=True)
-            # Text has already been delivered, so a PDF problem cannot make the whole step appear frozen.
-            await _original_reply_text(self,f"⚠️ Текст приглашения готов, но PDF шага {step} сейчас не собрался. Попробуй этот шаг ещё раз.")
+            await _original_reply_text(self,f"⚠️ PDF шага {step} сейчас не собрался, но текст приглашения готов.")
         finally:
             if temp_pdf and os.path.exists(temp_pdf):
                 try: os.remove(temp_pdf)
                 except OSError: pass
-        return result
+
+        # Keep the original UX: personalized PDF first, then the ready-to-copy text below it.
+        return await _original_reply_text(self,text,*args,**kwargs)
 
     Message.reply_document=_reply_document_with_greenleaf_followup; Message.reply_text=_reply_text_with_invitation_pdf
-    print("GREENLEAF personalized PDF hook v24 nonblocking step3 response",flush=True)
+    print("GREENLEAF personalized PDF hook v26 restored PDF-first order",flush=True)
 except Exception as exc:
     print(f"GREENLEAF runtime hook not loaded: {type(exc).__name__}: {exc}",flush=True)
