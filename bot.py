@@ -336,6 +336,18 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
+    if user_text == "🚀 С чего начать":
+        context.user_data["mode"] = "🚀 С чего начать"
+        context.user_data["dialog_history"] = []
+        await update.message.reply_text(
+            "🚀 С ЧЕГО НАЧАТЬ\n\n"
+            "Если ты только начинаешь знакомство с Greenleaf, не нужно пытаться понять всё сразу. Пойдём маленькими шагами.\n\n"
+            "Шаг 1 — сначала разберёмся, что такое Greenleaf и какие возможности здесь есть. Затем познакомимся с продукцией, базовыми понятиями маркетинг-плана и простыми действиями нового партнёра.\n\n"
+            "Скажи, пожалуйста: ты уже партнёр Greenleaf или пока только знакомишься с компанией?",
+            reply_markup=NEWCOMER_COMPANY_KEYBOARD,
+        )
+        return
+
     if user_text == "🧰 Инструменты":
         context.user_data.pop("card_step", None)
         context.user_data.pop("invite_step", None)
