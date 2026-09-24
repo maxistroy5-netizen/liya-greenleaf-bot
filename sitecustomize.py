@@ -38,7 +38,7 @@ try:
         time_match = re.search(r"🕙\s*([^\n]+)", text)
         if not date_match: date_match = re.search(r"\b(\d{1,2}[./-]\d{1,2}[./-]\d{2,4})\b", text)
         if not time_match: time_match = re.search(r"\b(\d{1,2}:\d{2})\b", text)
-        urls = re.findall(r"https?://[^\s]+", text); zoom_url = ""
+        urls = re.findall(r"https?://[^\s<]+", text); zoom_url = ""
         for url in urls:
             if "zoom.us" in url: zoom_url = url.rstrip(".,;:!?)"); break
         return (date_match.group(1).strip() if date_match else "", time_match.group(1).strip() if time_match else "", zoom_url)
@@ -83,6 +83,11 @@ try:
             if event_time:
                 time_field=(int(w*.315),int(h*.516),int(w*.470),int(h*.545))
                 _draw_centered(draw,event_time,font_path,time_field,max(17,int(w*.015)),11,green)
+            if zoom_url:
+                # Put a clean readable label inside the template's link field. The full
+                # Zoom URL remains attached to this same area as a clickable PDF link.
+                zoom_field=(int(w*.245),int(h*.817),int(w*.690),int(h*.862))
+                _draw_centered(draw,"ПОДКЛЮЧИТЬСЯ К ZOOM",font_path,zoom_field,max(18,int(w*.016)),11,green)
         # PNG optimization is intentionally disabled here. The source artwork is already
         # high quality, and Pillow's optimize pass can block the Telegram handler long
         # enough to make the next invitation step look frozen on Render.
@@ -114,7 +119,7 @@ try:
 
     def _add_yutta_to_step3(text: str) -> str:
         if "Ютта Гай" in text: return text
-        trainer = "🎓 Обучение проводит Ютта Гай — ТОП-лидер нашей команды, доктор и клинический психолог."
+        trainer = "🎓 <b>Обучение от Ютты Гай</b> — ТОП-лидера нашей команды, доктора и клинического психолога."
         marker = "\n\nБудет возможность спокойно посмотреть"
         if marker in text: return text.replace(marker, "\n\n" + trainer + marker, 1)
         return text + "\n\n" + trainer
@@ -137,6 +142,7 @@ try:
             elif text.startswith("2️⃣ ВТОРОЕ КАСАНИЕ"): step=2
             elif text.startswith("3️⃣ ГОТОВОЕ ПРИГЛАШЕНИЕ"):
                 step=3; text=_add_yutta_to_step3(text)
+                kwargs.setdefault("parse_mode","HTML")
         if step:
             recipient=_recipient_from_text(text)
             if _is_duplicate_step(self.chat_id,step,recipient,text):
@@ -159,6 +165,6 @@ try:
         return await _original_reply_text(self,text,*args,**kwargs)
 
     Message.reply_document=_reply_document_with_greenleaf_followup; Message.reply_text=_reply_text_with_invitation_pdf
-    print("GREENLEAF personalized PDF hook v22 faster invitation PDF generation",flush=True)
+    print("GREENLEAF personalized PDF hook v23 step3 zoom field + Yutta emphasis",flush=True)
 except Exception as exc:
     print(f"GREENLEAF runtime hook not loaded: {type(exc).__name__}: {exc}",flush=True)
