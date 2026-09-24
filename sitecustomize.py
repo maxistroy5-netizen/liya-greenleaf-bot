@@ -4,6 +4,7 @@ import io
 import os
 import re
 import tempfile
+import time
 
 try:
     import fitz
@@ -13,6 +14,7 @@ try:
     _original_reply_document = Message.reply_document
     _original_reply_text = Message.reply_text
     _sender_by_chat = {}
+    _last_step_reply = {}
 
     def _font_path():
         candidates = [
@@ -34,14 +36,11 @@ try:
     def _event_from_text(text: str):
         date_match = re.search(r"📅\s*([^\n]+)", text)
         time_match = re.search(r"🕙\s*([^\n]+)", text)
-        if not date_match:
-            date_match = re.search(r"\b(\d{1,2}[./-]\d{1,2}[./-]\d{2,4})\b", text)
-        if not time_match:
-            time_match = re.search(r"\b(\d{1,2}:\d{2})\b", text)
+        if not date_match: date_match = re.search(r"\b(\d{1,2}[./-]\d{1,2}[./-]\d{2,4})\b", text)
+        if not time_match: time_match = re.search(r"\b(\d{1,2}:\d{2})\b", text)
         urls = re.findall(r"https?://[^\s]+", text); zoom_url = ""
         for url in urls:
-            if "zoom.us" in url:
-                zoom_url = url.rstrip(".,;:!?)"); break
+            if "zoom.us" in url: zoom_url = url.rstrip(".,;:!?)"); break
         return (date_match.group(1).strip() if date_match else "", time_match.group(1).strip() if time_match else "", zoom_url)
 
     def _safe_name(value: str) -> str:
@@ -78,16 +77,12 @@ try:
         zoom_url = ""
         if step==3:
             event_date,event_time,zoom_url=_event_from_text(event_text)
-            # These boxes align with the blank value areas to the right of the
-            # printed Date/Time labels in the step-3 artwork.
             if event_date:
                 date_field=(int(w*.315),int(h*.455),int(w*.470),int(h*.484))
                 _draw_centered(draw,event_date,font_path,date_field,max(17,int(w*.015)),11,green)
             if event_time:
                 time_field=(int(w*.315),int(h*.516),int(w*.470),int(h*.545))
                 _draw_centered(draw,event_time,font_path,time_field,max(17,int(w*.015)),11,green)
-            # Do not draw another Zoom label: the template already contains
-            # its own call-to-action. We only add a clickable link below.
         png_buffer=io.BytesIO(); image.save(png_buffer,format="PNG",optimize=True); out_doc=fitz.open(); rect=src_page.rect
         out_page=out_doc.new_page(width=rect.width,height=rect.height); out_page.insert_image(out_page.rect,stream=png_buffer.getvalue())
         if step==3 and zoom_url:
@@ -115,13 +110,22 @@ try:
         return any(fragment in n for fragment in stray_fragments)
 
     def _add_yutta_to_step3(text: str) -> str:
-        if "Ютта Гай" in text:
-            return text
+        if "Ютта Гай" in text: return text
         trainer = "🎓 Обучение проводит Ютта Гай — ТОП-лидер нашей команды, доктор и клинический психолог."
         marker = "\n\nБудет возможность спокойно посмотреть"
-        if marker in text:
-            return text.replace(marker, "\n\n" + trainer + marker, 1)
+        if marker in text: return text.replace(marker, "\n\n" + trainer + marker, 1)
         return text + "\n\n" + trainer
+
+    def _is_duplicate_step(chat_id, step, recipient, text):
+        now=time.monotonic(); normalized=re.sub(r"\s+"," ",(text or "").strip())
+        key=(chat_id,step,(recipient or "").strip().lower(),normalized)
+        previous=_last_step_reply.get(key)
+        _last_step_reply[key]=now
+        # Same generated step sometimes reaches reply_text twice from the bot flow.
+        # Suppress only an identical repeat within 20 seconds; later intentional runs work normally.
+        for old_key, ts in list(_last_step_reply.items()):
+            if now-ts > 60: _last_step_reply.pop(old_key,None)
+        return previous is not None and now-previous < 20
 
     async def _reply_text_with_invitation_pdf(self,text,*args,**kwargs):
         if isinstance(text,str) and _is_stray_step_reply(text):
@@ -131,12 +135,15 @@ try:
             if text.startswith("1️⃣ ПЕРВОЕ КАСАНИЕ"): step=1
             elif text.startswith("2️⃣ ВТОРОЕ КАСАНИЕ"): step=2
             elif text.startswith("3️⃣ ГОТОВОЕ ПРИГЛАШЕНИЕ"):
-                step=3
-                text=_add_yutta_to_step3(text)
+                step=3; text=_add_yutta_to_step3(text)
         if step:
+            recipient=_recipient_from_text(text)
+            if _is_duplicate_step(self.chat_id,step,recipient,text):
+                print(f"GREENLEAF suppressed duplicate step={step} recipient={recipient!r}",flush=True)
+                return None
             temp_pdf=None
             try:
-                recipient=_recipient_from_text(text); sender=_sender_by_chat.get(self.chat_id,"") or _telegram_sender_name(self)
+                sender=_sender_by_chat.get(self.chat_id,"") or _telegram_sender_name(self)
                 if sender: _sender_by_chat[self.chat_id]=sender
                 temp_pdf=_make_personalized_pdf(step,recipient,sender,text)
                 with open(temp_pdf,"rb") as document:
@@ -151,6 +158,6 @@ try:
         return await _original_reply_text(self,text,*args,**kwargs)
 
     Message.reply_document=_reply_document_with_greenleaf_followup; Message.reply_text=_reply_text_with_invitation_pdf
-    print("GREENLEAF personalized PDF hook v20 step3 clean alignment",flush=True)
+    print("GREENLEAF personalized PDF hook v21 duplicate-step guard",flush=True)
 except Exception as exc:
     print(f"GREENLEAF runtime hook not loaded: {type(exc).__name__}: {exc}",flush=True)
