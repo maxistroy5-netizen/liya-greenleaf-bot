@@ -328,6 +328,7 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if user_text == "🌱 Я новичок | О компании":
         context.user_data.pop("mode", None)
+        context.user_data.pop("newcomer_stage", None)
         context.user_data["dialog_history"] = []
         await update.message.reply_text(
             "🌱 Я НОВИЧОК | О КОМПАНИИ\n\n"
@@ -338,12 +339,87 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if user_text == "🚀 С чего начать":
         context.user_data["mode"] = "🚀 С чего начать"
+        context.user_data["newcomer_stage"] = "status"
         context.user_data["dialog_history"] = []
         await update.message.reply_text(
             "🚀 С ЧЕГО НАЧАТЬ\n\n"
             "Если ты только начинаешь знакомство с Greenleaf, не нужно пытаться понять всё сразу. Пойдём маленькими шагами.\n\n"
             "Шаг 1 — сначала разберёмся, что такое Greenleaf и какие возможности здесь есть. Затем познакомимся с продукцией, базовыми понятиями маркетинг-плана и простыми действиями нового партнёра.\n\n"
             "Скажи, пожалуйста: ты уже партнёр Greenleaf или пока только знакомишься с компанией?",
+            reply_markup=NEWCOMER_COMPANY_KEYBOARD,
+        )
+        return
+
+    if context.user_data.get("newcomer_stage") == "status":
+        low = user_text.strip().lower()
+        if any(word in low for word in ["знаком", "не парт", "пока", "смотр", "изуч"]):
+            context.user_data["newcomer_stage"] = "browse"
+            await update.message.reply_text(
+                "Отлично 💚 Тогда начнём со знакомства без перегруза.\n\n"
+                "Выбери, что посмотреть первым:\n"
+                "🌿 О компании Greenleaf — кто мы и какой масштаб\n"
+                "💚 Продукция и направления — что выпускает компания\n"
+                "🌍 Возможности Greenleaf — что здесь есть для клиента и партнёра",
+                reply_markup=NEWCOMER_COMPANY_KEYBOARD,
+            )
+            return
+        if any(word in low for word in ["партн", "зарегистр", "работаю", "уже в"]):
+            context.user_data["newcomer_stage"] = "partner"
+            await update.message.reply_text(
+                "Отлично 💚 Если ты уже партнёр, начнём с простого маршрута:\n\n"
+                "1️⃣ познакомиться с компанией и продукцией\n"
+                "2️⃣ понять базовые понятия маркетинг-плана\n"
+                "3️⃣ подготовить свои рабочие инструменты\n"
+                "4️⃣ научиться спокойно приглашать людей без давления\n\n"
+                "Для начала можешь выбрать любой раздел ниже. Если хочешь перейти к цифрам и бонусам — вернись в главное меню и открой «📊 Маркетинг-план».",
+                reply_markup=NEWCOMER_COMPANY_KEYBOARD,
+            )
+            return
+
+    if user_text == "🌿 О компании Greenleaf":
+        context.user_data["mode"] = "🌿 О компании Greenleaf"
+        context.user_data["newcomer_stage"] = "browse"
+        await update.message.reply_text(
+            "🌿 О КОМПАНИИ GREENLEAF\n\n"
+            "Greenleaf — международная компания. В нашей корпоративной базе указано присутствие более чем в 30 странах и регионах и более 300 000 партнёров по миру.\n\n"
+            "🏭 Штаб-квартира и индустриальный парк связаны с Сучжоу, Китай. В материалах компании описаны собственные производственные базы и три центра исследований и разработок.\n\n"
+            "🛍 В корпоративной презентации указано более 5 000 товаров первой необходимости под собственными брендами, среди которых Greenleaf, SEALUXE, Pink Pie, iLiFE, CARICH, Kardli и Nilrich.\n\n"
+            "📄 По сертификатам Лия называет только то, что подтверждено конкретным документом или официальной страницей, и не переносит сертификат одного товара на весь ассортимент.\n\n"
+            "Хочешь продолжить? Нажми «💚 Продукция и направления» или «🌍 Возможности Greenleaf». А если нужен конкретный факт о компании — просто напиши вопрос.",
+            reply_markup=NEWCOMER_COMPANY_KEYBOARD,
+        )
+        return
+
+    if user_text == "💚 Продукция и направления":
+        context.user_data["mode"] = "💚 Продукция и направления"
+        context.user_data["newcomer_stage"] = "browse"
+        await update.message.reply_text(
+            "💚 ПРОДУКЦИЯ И НАПРАВЛЕНИЯ\n\n"
+            "В корпоративной базе Greenleaf представлены товары повседневного спроса в нескольких больших направлениях:\n\n"
+            "🧴 уход и личная гигиена\n"
+            "💄 декоративная косметика и уход\n"
+            "🏠 товары для дома\n"
+            "👶 товары для детей\n"
+            "🥛 отдельные категории питания\n\n"
+            "Также в материалах компании названы собственные бренды Greenleaf, SEALUXE, Pink Pie, iLiFE, CARICH, Kardli и Nilrich.\n\n"
+            "Лия не будет придумывать свойства товара или медицинские обещания. Если хочешь узнать о конкретном продукте или категории — напиши название, и разберём отдельно.\n\n"
+            "Дальше можно перейти к «🌍 Возможности Greenleaf».",
+            reply_markup=NEWCOMER_COMPANY_KEYBOARD,
+        )
+        return
+
+    if user_text == "🌍 Возможности Greenleaf":
+        context.user_data["mode"] = "🌍 Возможности Greenleaf"
+        context.user_data["newcomer_stage"] = "browse"
+        await update.message.reply_text(
+            "🌍 ВОЗМОЖНОСТИ GREENLEAF\n\n"
+            "Greenleaf можно рассматривать с разных сторон:\n\n"
+            "🛍 как клиент — знакомиться с ассортиментом и выбирать нужные товары;\n"
+            "🤝 как партнёр — изучать систему, маркетинг-план и постепенно развивать партнёрское направление;\n"
+            "🎓 через обучение — осваивать продукты, коммуникацию и рабочие инструменты;\n"
+            "🌍 через международное направление — компания представлена в разных странах и регионах.\n\n"
+            "Важно: Лия не обещает конкретный доход. Цифры, бонусы, статусы и условия она разбирает отдельно только по подтверждённой базе маркетинг-плана.\n\n"
+            "Если ты уже партнёр и хочешь понять, как устроены PV и бонусы, вернись в главное меню и нажми «📊 Маркетинг-план».",
             reply_markup=NEWCOMER_COMPANY_KEYBOARD,
         )
         return
