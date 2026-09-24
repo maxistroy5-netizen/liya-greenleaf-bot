@@ -10,9 +10,11 @@ try:
     import fitz
     from PIL import Image, ImageDraw, ImageFont
     from telegram import Message
+    from telegram.ext import MessageHandler
 
     _original_reply_document = Message.reply_document
     _original_reply_text = Message.reply_text
+    _original_message_handler_init = MessageHandler.__init__
     _sender_by_chat = {}
     _last_step_reply = {}
 
@@ -77,14 +79,11 @@ try:
         zoom_url = ""
         if step==3:
             event_date,event_time,zoom_url=_event_from_text(event_text)
-            # The source template already contains pale/legacy placeholder text. Cover the three
-            # automation fields completely, then draw one clean value in each fixed field.
             white=(255,255,255)
             date_field=(int(w*.247),int(h*.447),int(w*.480),int(h*.480))
             time_field=(int(w*.260),int(h*.507),int(w*.476),int(h*.540))
             zoom_field=(int(w*.188),int(h*.812),int(w*.545),int(h*.854))
-            for box in (date_field,time_field,zoom_field):
-                draw.rectangle(box,fill=white)
+            for box in (date_field,time_field,zoom_field): draw.rectangle(box,fill=white)
             if event_date:
                 clean_date=re.search(r"\d{1,2}[./-]\d{1,2}[./-]\d{2,4}",event_date)
                 clean_date=clean_date.group(0) if clean_date else event_date
@@ -131,8 +130,7 @@ try:
     def _is_duplicate_step(chat_id, step, recipient, text):
         now=time.monotonic(); normalized=re.sub(r"\s+"," ",(text or "").strip())
         key=(chat_id,step,(recipient or "").strip().lower(),normalized)
-        previous=_last_step_reply.get(key)
-        _last_step_reply[key]=now
+        previous=_last_step_reply.get(key); _last_step_reply[key]=now
         for old_key, ts in list(_last_step_reply.items()):
             if now-ts > 60: _last_step_reply.pop(old_key,None)
         return previous is not None and now-previous < 20
@@ -146,22 +144,19 @@ try:
             elif text.startswith("2️⃣ ВТОРОЕ КАСАНИЕ"): step=2
             elif text.startswith("3️⃣ ГОТОВОЕ ПРИГЛАШЕНИЕ"):
                 step=3; text=_add_yutta_to_step3(text); kwargs.setdefault("parse_mode","HTML")
-        if not step:
-            return await _original_reply_text(self,text,*args,**kwargs)
+        if not step: return await _original_reply_text(self,text,*args,**kwargs)
         recipient=_recipient_from_text(text)
         if _is_duplicate_step(self.chat_id,step,recipient,text):
             print(f"GREENLEAF suppressed duplicate step={step} recipient={recipient!r}",flush=True); return None
         if step == 3:
-            result = await _original_reply_text(self,text,*args,**kwargs)
-            temp_pdf=None
+            result = await _original_reply_text(self,text,*args,**kwargs); temp_pdf=None
             try:
                 sender=_sender_by_chat.get(self.chat_id,"") or _telegram_sender_name(self)
                 if sender: _sender_by_chat[self.chat_id]=sender
                 temp_pdf=_make_personalized_pdf(step,recipient,sender,text)
                 with open(temp_pdf,"rb") as document:
                     await _original_reply_document(self,document=document,filename=os.path.basename(temp_pdf),caption=f"💚 ШАГ {step} — персональный PDF для {recipient or 'приглашения'}.")
-            except Exception as exc:
-                print(f"GREENLEAF PDF PERSONALIZATION FAILED step={step}: {type(exc).__name__}: {exc}",flush=True)
+            except Exception as exc: print(f"GREENLEAF PDF PERSONALIZATION FAILED step={step}: {type(exc).__name__}: {exc}",flush=True)
             finally:
                 if temp_pdf and os.path.exists(temp_pdf):
                     try: os.remove(temp_pdf)
@@ -183,7 +178,31 @@ try:
                 except OSError: pass
         return await _original_reply_text(self,text,*args,**kwargs)
 
-    Message.reply_document=_reply_document_with_greenleaf_followup; Message.reply_text=_reply_text_with_invitation_pdf
-    print("GREENLEAF personalized PDF hook v30 fixed step3 fields",flush=True)
+    def _message_handler_init_with_fast_newcomer(self, filters, callback, block=True):
+        if getattr(callback, "__name__", "") == "chat":
+            original_callback = callback
+            async def fast_newcomer_callback(update, context):
+                text = ((update.message.text if update and update.message else "") or "").strip().lower()
+                if context.user_data.get("mode") == "🚀 С чего начать":
+                    if any(word in text for word in ("знакомлюсь", "знакомлю", "не партнер", "не партнёр", "пока знаком")):
+                        context.user_data["newcomer_stage"] = "exploring"
+                        await update.message.reply_text(
+                            "💚 Отлично. Тогда начнём со знакомства, без перегруза.\n\nGreenleaf — это компания, с которой можно знакомиться в своём темпе: сначала понять саму компанию и продукцию, а уже потом — партнёрские возможности и маркетинг-план.\n\nВыбери, что посмотреть первым:\n🌿 О компании Greenleaf\n💚 Продукция и направления\n🌍 Возможности Greenleaf\n\nНажми нужную кнопку ниже 👇"
+                        )
+                        return
+                    if any(word in text for word in ("уже партнер", "уже партнёр", "я партнер", "я партнёр")):
+                        context.user_data["newcomer_stage"] = "partner"
+                        await update.message.reply_text(
+                            "💚 Отлично. Тогда пойдём как для нового партнёра — коротко и по шагам.\n\nПервое: не нужно учить всё сразу. Начни с понимания компании и продукции, затем разберём базовые понятия маркетинг-плана и простые ежедневные действия.\n\nС чего хочешь начать: с компании, продукции или маркетинг-плана?"
+                        )
+                        return
+                return await original_callback(update, context)
+            callback = fast_newcomer_callback
+        return _original_message_handler_init(self, filters, callback, block=block)
+
+    Message.reply_document=_reply_document_with_greenleaf_followup
+    Message.reply_text=_reply_text_with_invitation_pdf
+    MessageHandler.__init__=_message_handler_init_with_fast_newcomer
+    print("GREENLEAF runtime hook v31 fast newcomer branch",flush=True)
 except Exception as exc:
     print(f"GREENLEAF runtime hook not loaded: {type(exc).__name__}: {exc}",flush=True)
