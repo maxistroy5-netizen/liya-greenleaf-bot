@@ -77,19 +77,28 @@ try:
         zoom_url = ""
         if step==3:
             event_date,event_time,zoom_url=_event_from_text(event_text)
+            # The source template already contains pale/legacy placeholder text. Cover the three
+            # automation fields completely, then draw one clean value in each fixed field.
+            white=(255,255,255)
+            date_field=(int(w*.247),int(h*.447),int(w*.480),int(h*.480))
+            time_field=(int(w*.260),int(h*.507),int(w*.476),int(h*.540))
+            zoom_field=(int(w*.188),int(h*.812),int(w*.545),int(h*.854))
+            for box in (date_field,time_field,zoom_field):
+                draw.rectangle(box,fill=white)
             if event_date:
-                date_field=(int(w*.245),int(h*.454),int(w*.469),int(h*.480))
-                _draw_centered(draw,event_date,font_path,date_field,max(14,int(w*.0125)),10,green)
+                clean_date=re.search(r"\d{1,2}[./-]\d{1,2}[./-]\d{2,4}",event_date)
+                clean_date=clean_date.group(0) if clean_date else event_date
+                _draw_centered(draw,clean_date,font_path,date_field,max(17,int(w*.014)),11,green)
             if event_time:
-                time_field=(int(w*.245),int(h*.515),int(w*.469),int(h*.541))
-                _draw_centered(draw,event_time,font_path,time_field,max(14,int(w*.0125)),10,green)
+                clean_time=re.search(r"\d{1,2}:\d{2}",event_time)
+                clean_time=clean_time.group(0) if clean_time else event_time
+                _draw_centered(draw,clean_time,font_path,time_field,max(17,int(w*.014)),11,green)
             if zoom_url:
-                zoom_field=(int(w*.177),int(h*.823),int(w*.514),int(h*.858))
-                _draw_centered(draw,"ПОДКЛЮЧИТЬСЯ К ZOOM",font_path,zoom_field,max(13,int(w*.0115)),9,green)
+                _draw_centered(draw,"ПОДКЛЮЧИТЬСЯ К ZOOM",font_path,zoom_field,max(16,int(w*.013)),10,green)
         png_buffer=io.BytesIO(); image.save(png_buffer,format="PNG",compress_level=3); out_doc=fitz.open(); rect=src_page.rect
         out_page=out_doc.new_page(width=rect.width,height=rect.height); out_page.insert_image(out_page.rect,stream=png_buffer.getvalue())
         if step==3 and zoom_url:
-            link_rect=fitz.Rect(rect.width*.177,rect.height*.823,rect.width*.514,rect.height*.858)
+            link_rect=fitz.Rect(rect.width*.188,rect.height*.812,rect.width*.545,rect.height*.854)
             out_page.insert_link({"kind":fitz.LINK_URI,"from":link_rect,"uri":zoom_url})
         output_path=os.path.join(tempfile.gettempdir(),f"GREENLEAF_Шаг_{step}_{_safe_name(recipient)}.pdf")
         out_doc.save(output_path,garbage=4,deflate=True); out_doc.close(); src.close(); return output_path
@@ -142,8 +151,6 @@ try:
         recipient=_recipient_from_text(text)
         if _is_duplicate_step(self.chat_id,step,recipient,text):
             print(f"GREENLEAF suppressed duplicate step={step} recipient={recipient!r}",flush=True); return None
-
-        # Step 3 must acknowledge immediately. PDF rendering is secondary and must never make the bot look frozen.
         if step == 3:
             result = await _original_reply_text(self,text,*args,**kwargs)
             temp_pdf=None
@@ -160,7 +167,6 @@ try:
                     try: os.remove(temp_pdf)
                     except OSError: pass
             return result
-
         temp_pdf=None
         try:
             sender=_sender_by_chat.get(self.chat_id,"") or _telegram_sender_name(self)
@@ -178,6 +184,6 @@ try:
         return await _original_reply_text(self,text,*args,**kwargs)
 
     Message.reply_document=_reply_document_with_greenleaf_followup; Message.reply_text=_reply_text_with_invitation_pdf
-    print("GREENLEAF personalized PDF hook v29 step3 immediate response",flush=True)
+    print("GREENLEAF personalized PDF hook v30 fixed step3 fields",flush=True)
 except Exception as exc:
     print(f"GREENLEAF runtime hook not loaded: {type(exc).__name__}: {exc}",flush=True)
