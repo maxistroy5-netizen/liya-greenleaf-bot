@@ -84,13 +84,8 @@ try:
                 time_field=(int(w*.315),int(h*.516),int(w*.470),int(h*.545))
                 _draw_centered(draw,event_time,font_path,time_field,max(17,int(w*.015)),11,green)
             if zoom_url:
-                # Put a clean readable label inside the template's link field. The full
-                # Zoom URL remains attached to this same area as a clickable PDF link.
                 zoom_field=(int(w*.245),int(h*.817),int(w*.690),int(h*.862))
                 _draw_centered(draw,"ПОДКЛЮЧИТЬСЯ К ZOOM",font_path,zoom_field,max(18,int(w*.016)),11,green)
-        # PNG optimization is intentionally disabled here. The source artwork is already
-        # high quality, and Pillow's optimize pass can block the Telegram handler long
-        # enough to make the next invitation step look frozen on Render.
         png_buffer=io.BytesIO(); image.save(png_buffer,format="PNG",compress_level=3); out_doc=fitz.open(); rect=src_page.rect
         out_page=out_doc.new_page(width=rect.width,height=rect.height); out_page.insert_image(out_page.rect,stream=png_buffer.getvalue())
         if step==3 and zoom_url:
@@ -143,28 +138,34 @@ try:
             elif text.startswith("3️⃣ ГОТОВОЕ ПРИГЛАШЕНИЕ"):
                 step=3; text=_add_yutta_to_step3(text)
                 kwargs.setdefault("parse_mode","HTML")
-        if step:
-            recipient=_recipient_from_text(text)
-            if _is_duplicate_step(self.chat_id,step,recipient,text):
-                print(f"GREENLEAF suppressed duplicate step={step} recipient={recipient!r}",flush=True)
-                return None
-            temp_pdf=None
-            try:
-                sender=_sender_by_chat.get(self.chat_id,"") or _telegram_sender_name(self)
-                if sender: _sender_by_chat[self.chat_id]=sender
-                temp_pdf=_make_personalized_pdf(step,recipient,sender,text)
-                with open(temp_pdf,"rb") as document:
-                    await _original_reply_document(self,document=document,filename=os.path.basename(temp_pdf),caption=f"💚 ШАГ {step} — персональный PDF для {recipient or 'приглашения'}.")
-            except Exception as exc:
-                print(f"GREENLEAF PDF PERSONALIZATION FAILED step={step}: {type(exc).__name__}: {exc}",flush=True)
-                await _original_reply_text(self,f"⚠️ Не удалось персонализировать PDF шага {step}. Пустой шаблон не отправляю. Ошибка записана в Render Logs.")
-            finally:
-                if temp_pdf and os.path.exists(temp_pdf):
-                    try: os.remove(temp_pdf)
-                    except OSError: pass
-        return await _original_reply_text(self,text,*args,**kwargs)
+        if not step:
+            return await _original_reply_text(self,text,*args,**kwargs)
+        recipient=_recipient_from_text(text)
+        if _is_duplicate_step(self.chat_id,step,recipient,text):
+            print(f"GREENLEAF suppressed duplicate step={step} recipient={recipient!r}",flush=True)
+            return None
+
+        # Important: send the usable invitation text immediately. PDF rendering must never
+        # block the bot's answer, especially on step 3 where the clickable Zoom link is added.
+        result = await _original_reply_text(self,text,*args,**kwargs)
+        temp_pdf=None
+        try:
+            sender=_sender_by_chat.get(self.chat_id,"") or _telegram_sender_name(self)
+            if sender: _sender_by_chat[self.chat_id]=sender
+            temp_pdf=_make_personalized_pdf(step,recipient,sender,text)
+            with open(temp_pdf,"rb") as document:
+                await _original_reply_document(self,document=document,filename=os.path.basename(temp_pdf),caption=f"💚 ШАГ {step} — персональный PDF для {recipient or 'приглашения'}.")
+        except Exception as exc:
+            print(f"GREENLEAF PDF PERSONALIZATION FAILED step={step}: {type(exc).__name__}: {exc}",flush=True)
+            # Text has already been delivered, so a PDF problem cannot make the whole step appear frozen.
+            await _original_reply_text(self,f"⚠️ Текст приглашения готов, но PDF шага {step} сейчас не собрался. Попробуй этот шаг ещё раз.")
+        finally:
+            if temp_pdf and os.path.exists(temp_pdf):
+                try: os.remove(temp_pdf)
+                except OSError: pass
+        return result
 
     Message.reply_document=_reply_document_with_greenleaf_followup; Message.reply_text=_reply_text_with_invitation_pdf
-    print("GREENLEAF personalized PDF hook v23 step3 zoom field + Yutta emphasis",flush=True)
+    print("GREENLEAF personalized PDF hook v24 nonblocking step3 response",flush=True)
 except Exception as exc:
     print(f"GREENLEAF runtime hook not loaded: {type(exc).__name__}: {exc}",flush=True)
