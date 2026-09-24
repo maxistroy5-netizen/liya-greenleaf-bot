@@ -17,10 +17,18 @@ OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
 client = OpenAI(api_key=OPENAI_API_KEY)
 
 MAIN_KEYBOARD = ReplyKeyboardMarkup([
-    ["🌱 Я новичок", "📊 Маркетинг-план"],
+    ["🌱 Я новичок | О компании", "📊 Маркетинг-план"],
     ["🤝 Подготовка к встрече", "💬 Тренировка диалога"],
     ["🎓 Проверить знания", "✍️ Задать вопрос"],
     ["🔍 Разбор тренировки", "🧰 Инструменты"],
+], resize_keyboard=True, is_persistent=True)
+
+NEWCOMER_COMPANY_KEYBOARD = ReplyKeyboardMarkup([
+    ["🚀 С чего начать"],
+    ["🌿 О компании Greenleaf"],
+    ["💚 Продукция и направления"],
+    ["🌍 Возможности Greenleaf"],
+    ["⬅️ Главное меню"],
 ], resize_keyboard=True, is_persistent=True)
 
 TRAINING_LEVEL_KEYBOARD = ReplyKeyboardMarkup([
@@ -101,7 +109,10 @@ LIYA_PROMPT = """
 """
 
 MODES = {
-    "🌱 Я новичок": "Начни обучение маркетинг-плану с нуля маленькими уроками. После каждого важного понятия задай один вопрос. Не переходи дальше, пока пользователь не понял тему.",
+    "🚀 С чего начать": "Пользователь новый партнёр Greenleaf. Начни обучение с нуля маленькими шагами: сначала объясни, с чего начать новичку, затем переходи к базовым понятиям маркетинг-плана. После каждого важного понятия задай один вопрос и не переходи дальше, пока пользователь не понял тему.",
+    "🌿 О компании Greenleaf": "Кратко и понятно познакомь пользователя с компанией Greenleaf. Используй прежде всего COMPANY-базу: история, масштаб, география, производство, сертификаты и ключевые факты. Не перегружай: дай структурированное первое знакомство и предложи задать вопрос.",
+    "💚 Продукция и направления": "Познакомь пользователя с основными направлениями продукции Greenleaf только по COMPANY-базе. Дай понятную структуру категорий без выдуманных свойств и медицинских обещаний. В конце предложи выбрать интересующее направление.",
+    "🌍 Возможности Greenleaf": "Объясни возможности Greenleaf для клиента и партнёра на основе COMPANY-базы и подтверждённой CURRENT-базы маркетинг-плана. Не обещай доход и не придумывай цифры. Покажи варианты: продукция, обучение, развитие партнёрства и международное направление.",
     "📊 Маркетинг-план": "Помоги разобраться в маркетинг-плане. Используй CURRENT как основной источник. Сначала спроси тему или предложи несколько тем из базы.",
     "🤝 Подготовка к встрече": "Помоги подготовиться к разговору с потенциальным партнёром. Сначала выясни, с кем встреча и какова цель разговора.",
     "💬 Тренировка диалога": "Проводи реалистичную ролевую тренировку. Играй потенциального партнёра/клиента, не выходи из роли и не подсказывай готовый ответ. После 4–6 содержательных реплик останови роль заголовком «РАЗБОР ТРЕНИРОВКИ», дай краткий разбор и один улучшенный вариант ответа.",
@@ -315,6 +326,16 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Главное меню:", reply_markup=MAIN_KEYBOARD)
         return
 
+    if user_text == "🌱 Я новичок | О компании":
+        context.user_data.pop("mode", None)
+        context.user_data["dialog_history"] = []
+        await update.message.reply_text(
+            "🌱 Я НОВИЧОК | О КОМПАНИИ\n\n"
+            "Здесь можно начать с самого начала или познакомиться с Greenleaf. Выбери, что тебе сейчас интересно 👇",
+            reply_markup=NEWCOMER_COMPANY_KEYBOARD,
+        )
+        return
+
     if user_text == "🧰 Инструменты":
         context.user_data.pop("card_step", None)
         context.user_data.pop("invite_step", None)
@@ -518,7 +539,9 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["dialog_history"] = context.user_data["dialog_history"][-20:]
     if context.user_data.get("mode") == "💬 Тренировка диалога":
         context.user_data["training_history"].append("Лия: " + answer)
-    await update.message.reply_text(answer, reply_markup=MAIN_KEYBOARD)
+    company_submenu_modes = {"🚀 С чего начать", "🌿 О компании Greenleaf", "💚 Продукция и направления", "🌍 Возможности Greenleaf"}
+    reply_keyboard = NEWCOMER_COMPANY_KEYBOARD if context.user_data.get("mode") in company_submenu_modes else MAIN_KEYBOARD
+    await update.message.reply_text(answer, reply_markup=reply_keyboard)
 
 
 class HealthHandler(BaseHTTPRequestHandler):
