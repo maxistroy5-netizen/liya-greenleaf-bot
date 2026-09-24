@@ -77,8 +77,6 @@ try:
         zoom_url = ""
         if step==3:
             event_date,event_time,zoom_url=_event_from_text(event_text)
-            # Coordinates below are calibrated against the actual rendered step-3 template.
-            # The editable white date/time cells occupy x≈0.245..0.469 and y≈0.452..0.482 / 0.513..0.543.
             if event_date:
                 date_field=(int(w*.245),int(h*.454),int(w*.469),int(h*.480))
                 _draw_centered(draw,event_date,font_path,date_field,max(14,int(w*.0125)),10,green)
@@ -86,7 +84,6 @@ try:
                 time_field=(int(w*.245),int(h*.515),int(w*.469),int(h*.541))
                 _draw_centered(draw,event_time,font_path,time_field,max(14,int(w*.0125)),10,green)
             if zoom_url:
-                # CTA belongs inside the long white link field, before the hand icon.
                 zoom_field=(int(w*.177),int(h*.823),int(w*.514),int(h*.858))
                 _draw_centered(draw,"ПОДКЛЮЧИТЬСЯ К ZOOM",font_path,zoom_field,max(13,int(w*.0115)),9,green)
         png_buffer=io.BytesIO(); image.save(png_buffer,format="PNG",compress_level=3); out_doc=fitz.open(); rect=src_page.rect
@@ -139,14 +136,30 @@ try:
             if text.startswith("1️⃣ ПЕРВОЕ КАСАНИЕ"): step=1
             elif text.startswith("2️⃣ ВТОРОЕ КАСАНИЕ"): step=2
             elif text.startswith("3️⃣ ГОТОВОЕ ПРИГЛАШЕНИЕ"):
-                step=3; text=_add_yutta_to_step3(text)
-                kwargs.setdefault("parse_mode","HTML")
+                step=3; text=_add_yutta_to_step3(text); kwargs.setdefault("parse_mode","HTML")
         if not step:
             return await _original_reply_text(self,text,*args,**kwargs)
         recipient=_recipient_from_text(text)
         if _is_duplicate_step(self.chat_id,step,recipient,text):
-            print(f"GREENLEAF suppressed duplicate step={step} recipient={recipient!r}",flush=True)
-            return None
+            print(f"GREENLEAF suppressed duplicate step={step} recipient={recipient!r}",flush=True); return None
+
+        # Step 3 must acknowledge immediately. PDF rendering is secondary and must never make the bot look frozen.
+        if step == 3:
+            result = await _original_reply_text(self,text,*args,**kwargs)
+            temp_pdf=None
+            try:
+                sender=_sender_by_chat.get(self.chat_id,"") or _telegram_sender_name(self)
+                if sender: _sender_by_chat[self.chat_id]=sender
+                temp_pdf=_make_personalized_pdf(step,recipient,sender,text)
+                with open(temp_pdf,"rb") as document:
+                    await _original_reply_document(self,document=document,filename=os.path.basename(temp_pdf),caption=f"💚 ШАГ {step} — персональный PDF для {recipient or 'приглашения'}.")
+            except Exception as exc:
+                print(f"GREENLEAF PDF PERSONALIZATION FAILED step={step}: {type(exc).__name__}: {exc}",flush=True)
+            finally:
+                if temp_pdf and os.path.exists(temp_pdf):
+                    try: os.remove(temp_pdf)
+                    except OSError: pass
+            return result
 
         temp_pdf=None
         try:
@@ -162,10 +175,9 @@ try:
             if temp_pdf and os.path.exists(temp_pdf):
                 try: os.remove(temp_pdf)
                 except OSError: pass
-
         return await _original_reply_text(self,text,*args,**kwargs)
 
     Message.reply_document=_reply_document_with_greenleaf_followup; Message.reply_text=_reply_text_with_invitation_pdf
-    print("GREENLEAF personalized PDF hook v28 calibrated step3 template fields",flush=True)
+    print("GREENLEAF personalized PDF hook v29 step3 immediate response",flush=True)
 except Exception as exc:
     print(f"GREENLEAF runtime hook not loaded: {type(exc).__name__}: {exc}",flush=True)
