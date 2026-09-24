@@ -83,7 +83,10 @@ try:
             if event_time:
                 time_field=(int(w*.315),int(h*.516),int(w*.470),int(h*.545))
                 _draw_centered(draw,event_time,font_path,time_field,max(17,int(w*.015)),11,green)
-        png_buffer=io.BytesIO(); image.save(png_buffer,format="PNG",optimize=True); out_doc=fitz.open(); rect=src_page.rect
+        # PNG optimization is intentionally disabled here. The source artwork is already
+        # high quality, and Pillow's optimize pass can block the Telegram handler long
+        # enough to make the next invitation step look frozen on Render.
+        png_buffer=io.BytesIO(); image.save(png_buffer,format="PNG",compress_level=3); out_doc=fitz.open(); rect=src_page.rect
         out_page=out_doc.new_page(width=rect.width,height=rect.height); out_page.insert_image(out_page.rect,stream=png_buffer.getvalue())
         if step==3 and zoom_url:
             link_rect=fitz.Rect(rect.width*.245,rect.height*.817,rect.width*.690,rect.height*.862)
@@ -121,8 +124,6 @@ try:
         key=(chat_id,step,(recipient or "").strip().lower(),normalized)
         previous=_last_step_reply.get(key)
         _last_step_reply[key]=now
-        # Same generated step sometimes reaches reply_text twice from the bot flow.
-        # Suppress only an identical repeat within 20 seconds; later intentional runs work normally.
         for old_key, ts in list(_last_step_reply.items()):
             if now-ts > 60: _last_step_reply.pop(old_key,None)
         return previous is not None and now-previous < 20
@@ -158,6 +159,6 @@ try:
         return await _original_reply_text(self,text,*args,**kwargs)
 
     Message.reply_document=_reply_document_with_greenleaf_followup; Message.reply_text=_reply_text_with_invitation_pdf
-    print("GREENLEAF personalized PDF hook v21 duplicate-step guard",flush=True)
+    print("GREENLEAF personalized PDF hook v22 faster invitation PDF generation",flush=True)
 except Exception as exc:
     print(f"GREENLEAF runtime hook not loaded: {type(exc).__name__}: {exc}",flush=True)
