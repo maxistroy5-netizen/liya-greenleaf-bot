@@ -78,18 +78,21 @@ try:
         if step==3:
             event_date,event_time,zoom_url=_event_from_text(event_text)
             if event_date:
-                date_field=(int(w*.315),int(h*.455),int(w*.470),int(h*.484))
-                _draw_centered(draw,event_date,font_path,date_field,max(17,int(w*.015)),11,green)
+                # Center the date inside the white date entry area, clear of the underline/label.
+                date_field=(int(w*.245),int(h*.451),int(w*.482),int(h*.478))
+                _draw_centered(draw,event_date,font_path,date_field,max(16,int(w*.014)),11,green)
             if event_time:
-                time_field=(int(w*.315),int(h*.516),int(w*.470),int(h*.545))
-                _draw_centered(draw,event_time,font_path,time_field,max(17,int(w*.015)),11,green)
+                # Center the time inside its white entry area, matching the date field above.
+                time_field=(int(w*.245),int(h*.512),int(w*.482),int(h*.539))
+                _draw_centered(draw,event_time,font_path,time_field,max(16,int(w*.014)),11,green)
             if zoom_url:
-                zoom_field=(int(w*.245),int(h*.817),int(w*.690),int(h*.862))
-                _draw_centered(draw,"ПОДКЛЮЧИТЬСЯ К ZOOM",font_path,zoom_field,max(18,int(w*.016)),11,green)
+                # Keep the long URL out of the artwork: show one clean CTA centered in the button.
+                zoom_field=(int(w*.190),int(h*.817),int(w*.555),int(h*.858))
+                _draw_centered(draw,"ПОДКЛЮЧИТЬСЯ К ZOOM",font_path,zoom_field,max(16,int(w*.014)),10,green)
         png_buffer=io.BytesIO(); image.save(png_buffer,format="PNG",compress_level=3); out_doc=fitz.open(); rect=src_page.rect
         out_page=out_doc.new_page(width=rect.width,height=rect.height); out_page.insert_image(out_page.rect,stream=png_buffer.getvalue())
         if step==3 and zoom_url:
-            link_rect=fitz.Rect(rect.width*.245,rect.height*.817,rect.width*.690,rect.height*.862)
+            link_rect=fitz.Rect(rect.width*.190,rect.height*.817,rect.width*.555,rect.height*.858)
             out_page.insert_link({"kind":fitz.LINK_URI,"from":link_rect,"uri":zoom_url})
         output_path=os.path.join(tempfile.gettempdir(),f"GREENLEAF_Шаг_{step}_{_safe_name(recipient)}.pdf")
         out_doc.save(output_path,garbage=4,deflate=True); out_doc.close(); src.close(); return output_path
@@ -164,6 +167,6 @@ try:
         return await _original_reply_text(self,text,*args,**kwargs)
 
     Message.reply_document=_reply_document_with_greenleaf_followup; Message.reply_text=_reply_text_with_invitation_pdf
-    print("GREENLEAF personalized PDF hook v26 restored PDF-first order",flush=True)
+    print("GREENLEAF personalized PDF hook v27 aligned step3 fields",flush=True)
 except Exception as exc:
     print(f"GREENLEAF runtime hook not loaded: {type(exc).__name__}: {exc}",flush=True)
