@@ -79,18 +79,18 @@ try:
         if step==3:
             event_date,event_time,zoom_url=_event_from_text(event_text)
             if event_date:
-                date_field=(int(w*.190),int(h*.447),int(w*.371),int(h*.486))
+                date_field=(int(w*.300),int(h*.447),int(w*.595),int(h*.486))
                 _draw_centered(draw,event_date,font_path,date_field,max(18,int(w*.017)),12,green)
             if event_time:
-                time_field=(int(w*.201),int(h*.508),int(w*.369),int(h*.548))
+                time_field=(int(w*.300),int(h*.508),int(w*.595),int(h*.548))
                 _draw_centered(draw,event_time,font_path,time_field,max(18,int(w*.017)),12,green)
             if zoom_url:
-                link_field=(int(w*.142),int(h*.817),int(w*.421),int(h*.862))
+                link_field=(int(w*.245),int(h*.817),int(w*.690),int(h*.862))
                 _draw_centered(draw,"ПЕРЕЙТИ В ZOOM",font_path,link_field,max(17,int(w*.015)),11,green)
         png_buffer=io.BytesIO(); image.save(png_buffer,format="PNG",optimize=True); out_doc=fitz.open(); rect=src_page.rect
         out_page=out_doc.new_page(width=rect.width,height=rect.height); out_page.insert_image(out_page.rect,stream=png_buffer.getvalue())
         if step==3 and zoom_url:
-            link_rect=fitz.Rect(rect.width*.142,rect.height*.817,rect.width*.421,rect.height*.862)
+            link_rect=fitz.Rect(rect.width*.245,rect.height*.817,rect.width*.690,rect.height*.862)
             out_page.insert_link({"kind":fitz.LINK_URI,"from":link_rect,"uri":zoom_url})
         output_path=os.path.join(tempfile.gettempdir(),f"GREENLEAF_Шаг_{step}_{_safe_name(recipient)}.pdf")
         out_doc.save(output_path,garbage=4,deflate=True); out_doc.close(); src.close(); return output_path
@@ -150,6 +150,6 @@ try:
         return await _original_reply_text(self,text,*args,**kwargs)
 
     Message.reply_document=_reply_document_with_greenleaf_followup; Message.reply_text=_reply_text_with_invitation_pdf
-    print("GREENLEAF personalized PDF hook v18 step3 Yutta trainer line",flush=True)
+    print("GREENLEAF personalized PDF hook v19 step3 field realignment",flush=True)
 except Exception as exc:
     print(f"GREENLEAF runtime hook not loaded: {type(exc).__name__}: {exc}",flush=True)
