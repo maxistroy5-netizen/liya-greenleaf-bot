@@ -28,15 +28,20 @@ try:
         raise RuntimeError("Cyrillic TrueType font was not found on Render")
 
     def _recipient_from_text(text: str) -> str:
-        match = re.search(r"(?:^|\n)([^\n,]{1,60}),\s*привет!", text, re.IGNORECASE)
+        match = re.search(r"(?:^|\n)([^\n,]{1,60}),\s*(?:привет|приглашаю)", text, re.IGNORECASE)
         return match.group(1).strip() if match else ""
 
     def _event_from_text(text: str):
-        date_match = re.search(r"📅\s*([^\n]+)", text); time_match = re.search(r"🕙\s*([^\n]+)", text)
+        date_match = re.search(r"📅\s*([^\n]+)", text)
+        time_match = re.search(r"🕙\s*([^\n]+)", text)
+        if not date_match:
+            date_match = re.search(r"\b(\d{1,2}[./-]\d{1,2}[./-]\d{2,4})\b", text)
+        if not time_match:
+            time_match = re.search(r"\b(\d{1,2}:\d{2})\b", text)
         urls = re.findall(r"https?://[^\s]+", text); zoom_url = ""
         for url in urls:
-            if "zoom.us" in url: zoom_url = url.rstrip(".,;:!?"); break
-        if not zoom_url and urls: zoom_url = urls[0].rstrip(".,;:!?")
+            if "zoom.us" in url:
+                zoom_url = url.rstrip(".,;:!?)"); break
         return (date_match.group(1).strip() if date_match else "", time_match.group(1).strip() if time_match else "", zoom_url)
 
     def _safe_name(value: str) -> str:
@@ -65,22 +70,29 @@ try:
         if recipient:
             if step==1: field=(int(w*.143),int(h*.174),int(w*.319),int(h*.226))
             elif step==2: field=(int(w*.103),int(h*.178),int(w*.414),int(h*.230))
-            else: field=(int(w*.143),int(h*.174),int(w*.319),int(h*.226))
+            elif step==3: field=(int(w*.047),int(h*.177),int(w*.299),int(h*.226))
             _draw_centered(draw,recipient,font_path,field,max(18,int(w*.018)),13,green)
         if step==2 and sender:
-            # Center sender in the full visible white signature field beside the green profile icon.
             sender_field=(int(w*.174),int(h*.724),int(w*.467),int(h*.766))
             _draw_centered(draw,sender,font_path,sender_field,max(16,int(w*.014)),11,green)
+        zoom_url = ""
         if step==3:
-            event_date,event_time,zoom_url=_event_from_text(event_text); lines=[]
-            if event_date: lines.append(f"Дата: {event_date}")
-            if event_time: lines.append(f"Время: {event_time}")
-            if zoom_url: lines.append(f"Zoom: {zoom_url}")
-            y=int(h*.72)
-            for line in lines:
-                font=_fit_pil_font(draw,line,font_path,max(16,int(w*.015)),11,int(w*.80)); draw.text((int(w*.10),y),line,font=font,fill=green); y+=int(h*.038)
+            event_date,event_time,zoom_url=_event_from_text(event_text)
+            if event_date:
+                date_field=(int(w*.190),int(h*.447),int(w*.371),int(h*.486))
+                _draw_centered(draw,event_date,font_path,date_field,max(18,int(w*.017)),12,green)
+            if event_time:
+                time_field=(int(w*.201),int(h*.508),int(w*.369),int(h*.548))
+                _draw_centered(draw,event_time,font_path,time_field,max(18,int(w*.017)),12,green)
+            if zoom_url:
+                link_field=(int(w*.142),int(h*.817),int(w*.421),int(h*.862))
+                _draw_centered(draw,"ПЕРЕЙТИ В ZOOM",font_path,link_field,max(17,int(w*.015)),11,green)
         png_buffer=io.BytesIO(); image.save(png_buffer,format="PNG",optimize=True); out_doc=fitz.open(); rect=src_page.rect
         out_page=out_doc.new_page(width=rect.width,height=rect.height); out_page.insert_image(out_page.rect,stream=png_buffer.getvalue())
+        if step==3 and zoom_url:
+            # Make the visible Zoom button clickable without printing the long technical URL.
+            link_rect=fitz.Rect(rect.width*.142,rect.height*.817,rect.width*.421,rect.height*.862)
+            out_page.insert_link({"kind":fitz.LINK_URI,"from":link_rect,"uri":zoom_url})
         output_path=os.path.join(tempfile.gettempdir(),f"GREENLEAF_Шаг_{step}_{_safe_name(recipient)}.pdf")
         out_doc.save(output_path,garbage=4,deflate=True); out_doc.close(); src.close(); return output_path
 
@@ -128,6 +140,6 @@ try:
         return await _original_reply_text(self,text,*args,**kwargs)
 
     Message.reply_document=_reply_document_with_greenleaf_followup; Message.reply_text=_reply_text_with_invitation_pdf
-    print("GREENLEAF personalized PDF hook v16 precise step2 field centering",flush=True)
+    print("GREENLEAF personalized PDF hook v17 step3 mapped fields and clickable Zoom",flush=True)
 except Exception as exc:
     print(f"GREENLEAF runtime hook not loaded: {type(exc).__name__}: {exc}",flush=True)
