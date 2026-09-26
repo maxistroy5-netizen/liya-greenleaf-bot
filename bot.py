@@ -7,7 +7,7 @@ from urllib.parse import urlsplit, urlunsplit
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 from openai import OpenAI
-from telegram import Update, ReplyKeyboardMarkup
+from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
 
 from card_generator import generate_business_card
@@ -16,11 +16,14 @@ TELEGRAM_TOKEN = os.environ["TELEGRAM_TOKEN"]
 OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
 client = OpenAI(api_key=OPENAI_API_KEY)
 
+UTG_ACADEMY_URL = "https://t.me/YuttaLegacyAllianceBot?start=liya_academy"
+
 MAIN_KEYBOARD = ReplyKeyboardMarkup([
     ["🌱 Я новичок | О компании", "📊 Маркетинг-план"],
     ["🤝 Подготовка к встрече", "💬 Тренировка диалога"],
     ["🎓 Проверить знания", "✍️ Задать вопрос"],
     ["🔍 Разбор тренировки", "🧰 Инструменты"],
+    ["🎓 Ютта Гай | Академия"],
 ], resize_keyboard=True, is_persistent=True)
 
 NEWCOMER_COMPANY_KEYBOARD = ReplyKeyboardMarkup([
@@ -298,6 +301,16 @@ async def build_and_send_card(update: Update, context: ContextTypes.DEFAULT_TYPE
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
     context.user_data["dialog_history"] = []
+    source = context.args[0] if context.args else ""
+    if source == "utg_greenleaf":
+        context.user_data["source"] = "utg_greenleaf"
+        await update.message.reply_text(
+            "💚 Добро пожаловать в Лию — пространство Greenleaf!\n\n"
+            "Вы перешли к нам из UTG Legacy Alliance. Здесь я помогу познакомиться с Greenleaf: компанией, продукцией, международными возможностями и системой развития партнёров.\n\n"
+            "Можно начать спокойно, без перегруза — выберите, что интересно посмотреть первым 👇",
+            reply_markup=NEWCOMER_COMPANY_KEYBOARD,
+        )
+        return
     await update.message.reply_text(
         "💚 Привет! Я Лия — персональный AI-тренер Greenleaf.\n\nЯ помогу разобраться в маркетинг-плане, подготовиться к встрече, потренировать диалог, проверить знания и использовать рабочие инструменты.",
         reply_markup=MAIN_KEYBOARD,
@@ -324,6 +337,16 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data.clear()
         context.user_data["dialog_history"] = []
         await update.message.reply_text("Главное меню:", reply_markup=MAIN_KEYBOARD)
+        return
+
+    if user_text == "🎓 Ютта Гай | Академия":
+        keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("🎓 Перейти в UTG Legacy Alliance", url=UTG_ACADEMY_URL)]])
+        await update.message.reply_text(
+            "🎓 ЮТТА ГАЙ | АКАДЕМИЯ\n\n"
+            "Продолжить обучение, работу с мышлением, лидерством и личным развитием можно в отдельном пространстве UTG Legacy Alliance.\n\n"
+            "Нажмите кнопку ниже — переход откроется прямо в Telegram 👇",
+            reply_markup=keyboard,
+        )
         return
 
     if user_text == "🌱 Я новичок | О компании":
