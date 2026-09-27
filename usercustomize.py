@@ -13,8 +13,19 @@ LESSON_MENU = ReplyKeyboardMarkup([
     ["💬 Задать вопрос по маркетинг-плану"],
     ["⬅️ Главное меню"],
 ], resize_keyboard=True, is_persistent=True)
+NEXT_LESSON_MENU = ReplyKeyboardMarkup([
+    ["➡️ Урок 2 — Первые бонусы"],
+    ["💬 Задать вопрос по маркетинг-плану"],
+    ["⬅️ Главное меню"],
+], resize_keyboard=True, is_persistent=True)
+LESSON_02_MENU = ReplyKeyboardMarkup([
+    ["📝 Проверить второй блок"],
+    ["💬 Задать вопрос по маркетинг-плану"],
+    ["⬅️ Главное меню"],
+], resize_keyboard=True, is_persistent=True)
 CHECK_MENU = ReplyKeyboardMarkup([["A", "B", "C"], ["⬅️ Главное меню"]], resize_keyboard=True, is_persistent=True)
 LESSON_IMAGE = "marketing_lesson_01.png.png"
+LESSON_IMAGE_02 = "marketing_lesson_02.png.png"
 
 async def marketing_lesson_router(update, context):
     message = getattr(update, "message", None)
@@ -78,7 +89,39 @@ async def marketing_lesson_router(update, context):
             raise ApplicationHandlerStop
         context.user_data["marketing_lesson_stage"] = "lesson_01_done"
         context.user_data.pop("marketing_quiz_step", None)
-        await message.reply_text("Супер! 💚 Первый блок пройден.\n\nТы разобралась в трёх базовых вещах:\n• на чём основан маркетинг-план;\n• что такое PV;\n• как устроены левая и правая группы.\n\nСледующий учебный блок добавим сюда после проверки этого маршрута.", reply_markup=LESSON_MENU)
+        await message.reply_text("Супер! 💚 Первый блок пройден.\n\nТы разобралась в трёх базовых вещах:\n• на чём основан маркетинг-план;\n• что такое PV;\n• как устроены левая и правая группы.\n\nТеперь можно переходить к первым бонусам 👇", reply_markup=NEXT_LESSON_MENU)
+        raise ApplicationHandlerStop
+
+    if text == "➡️ Урок 2 — Первые бонусы":
+        image_path = os.path.join(os.path.dirname(__file__), LESSON_IMAGE_02)
+        if not os.path.exists(image_path):
+            await message.reply_text("Второй учебный блок пока не найден на сервере. Попробуй ещё раз после обновления.", reply_markup=NEXT_LESSON_MENU)
+            raise ApplicationHandlerStop
+        context.user_data["marketing_lesson_stage"] = "lesson_02"
+        context.user_data.pop("marketing_quiz_step", None)
+        with open(image_path, "rb") as image:
+            await message.reply_photo(
+                photo=image,
+                caption="🎓 УРОК 2 | ПЕРВЫЕ БОНУСЫ\n\nЗдесь разбираем три базовых вида бонусов: бонус наставника, бонус глубины и бинарный бонус (бонус ширины).\n\nВнимательно посмотри слайд. Когда будешь готова — нажми «📝 Проверить второй блок».",
+            )
+        await message.reply_text("Не спеши 💚 Сначала разберись, за какое действие начисляется каждый из трёх бонусов.", reply_markup=LESSON_02_MENU)
+        raise ApplicationHandlerStop
+
+    if text == "📝 Проверить второй блок":
+        context.user_data["marketing_lesson_stage"] = "quiz_02"
+        await message.reply_text(
+            "💬 ПРОВЕРИМ ПОНИМАНИЕ\n\nОт чего зависит бинарный бонус (бонус ширины)?\n\nA — Только от количества лично приглашённых партнёров\nB — От товарооборота меньшей группы (стартовые наборы) и условий пакета\nC — Только от личных покупок",
+            reply_markup=CHECK_MENU,
+        )
+        raise ApplicationHandlerStop
+
+    if stage == "quiz_02" and text.upper() in {"A", "B", "C", "А", "Б", "В"}:
+        normalized = {"А": "A", "Б": "B", "В": "C"}.get(text.upper(), text.upper())
+        if normalized != "B":
+            await message.reply_text("Не совсем 💚 Посмотри ещё раз на блок «Бинарный бонус (бонус ширины)»: учитываются меньшая группа (стартовые наборы) и условия твоего пакета. Попробуй ещё раз.", reply_markup=CHECK_MENU)
+            raise ApplicationHandlerStop
+        context.user_data["marketing_lesson_stage"] = "lesson_02_done"
+        await message.reply_text("Верно! 💚\n\nВторой блок пройден. Ты уже различаешь бонус наставника, бонус глубины и бинарный бонус (бонус ширины).\n\nСледующий блок подключим сюда следующим шагом.", reply_markup=NEXT_LESSON_MENU)
         raise ApplicationHandlerStop
 
     if text == "💬 Задать вопрос по маркетинг-плану":
@@ -95,7 +138,6 @@ _marketing_router_registered = set()
 def patched_add_handler(self, handler, group=0):
     callback = getattr(handler, "callback", None)
     callback_name = getattr(callback, "__name__", "")
-    # Application uses slots, so do not set arbitrary attributes on it.
     app_key = id(self)
     if callback_name in {"chat", "fast_newcomer_callback"} and app_key not in _marketing_router_registered:
         _original_add_handler(self, MessageHandler(filters.TEXT & ~filters.COMMAND, marketing_lesson_router), group=-1)
@@ -104,4 +146,4 @@ def patched_add_handler(self, handler, group=0):
     return _original_add_handler(self, handler, group=group)
 
 Application.add_handler = patched_add_handler
-print("GREENLEAF marketing lesson router v3 loaded", flush=True)
+print("GREENLEAF marketing lesson router v4 loaded", flush=True)
