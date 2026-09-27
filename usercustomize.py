@@ -37,10 +37,7 @@ async def marketing_lesson_router(update, context):
     if text == "📊 Маркетинг-план":
         context.user_data.pop("marketing_lesson_stage", None)
         context.user_data.pop("marketing_quiz_step", None)
-        await message.reply_text(
-            "📊 МАРКЕТИНГ-ПЛАН GREENLEAF\n\nЗдесь можно пройти обучение с самого начала — спокойно, небольшими блоками и с проверкой понимания.\n\nИли задать Лии свой вопрос по маркетинг-плану. Выбери, как продолжим 👇",
-            reply_markup=MARKETING_MENU,
-        )
+        await message.reply_text("📊 МАРКЕТИНГ-ПЛАН GREENLEAF\n\nЗдесь можно пройти обучение с самого начала — спокойно, небольшими блоками и с проверкой понимания.\n\nИли задать Лии свой вопрос по маркетинг-плану. Выбери, как продолжим 👇", reply_markup=MARKETING_MENU)
         raise ApplicationHandlerStop
 
     if text == "🎓 Начать обучение с нуля":
@@ -51,20 +48,14 @@ async def marketing_lesson_router(update, context):
         context.user_data["marketing_lesson_stage"] = "lesson_01"
         context.user_data.pop("marketing_quiz_step", None)
         with open(image_path, "rb") as image:
-            await message.reply_photo(
-                photo=image,
-                caption="🎓 УРОК 1 | ОСНОВА МАРКЕТИНГ-ПЛАНА\n\nПосмотри первый блок: как устроен маркетинг-план, что такое PV и как формируются левая и правая группы.\n\nКогда будешь готова — нажми «📝 Проверить первый блок».",
-            )
+            await message.reply_photo(photo=image, caption="🎓 УРОК 1 | ОСНОВА МАРКЕТИНГ-ПЛАНА\n\nПосмотри первый блок: как устроен маркетинг-план, что такое PV и как формируются левая и правая группы.\n\nКогда будешь готова — нажми «📝 Проверить первый блок».")
         await message.reply_text("Я рядом 💚 Можно увеличить изображение и спокойно всё рассмотреть.", reply_markup=LESSON_MENU)
         raise ApplicationHandlerStop
 
     if text == "📝 Проверить первый блок":
         context.user_data["marketing_lesson_stage"] = "quiz_01"
         context.user_data["marketing_quiz_step"] = 1
-        await message.reply_text(
-            "💬 ПРОВЕРИМ ПОНИМАНИЕ — 1/3\n\nНа чём основан маркетинг-план Greenleaf?\n\nA — Только на продаже продукции\nB — На покупке продукции и развитии команды\nC — Только на привлечении новых партнёров",
-            reply_markup=CHECK_MENU,
-        )
+        await message.reply_text("💬 ПРОВЕРИМ ПОНИМАНИЕ — 1/3\n\nНа чём основан маркетинг-план Greenleaf?\n\nA — Только на продаже продукции\nB — На покупке продукции и развитии команды\nC — Только на привлечении новых партнёров", reply_markup=CHECK_MENU)
         raise ApplicationHandlerStop
 
     if stage == "quiz_01" and text.upper() in {"A", "B", "C", "А", "Б", "В"}:
@@ -72,11 +63,7 @@ async def marketing_lesson_router(update, context):
         step = context.user_data.get("marketing_quiz_step", 1)
         correct = {1: "B", 2: "B", 3: "C"}[step]
         if normalized != correct:
-            hints = {
-                1: "Не совсем 💚 Маркетинг-план связан и с покупкой продукции, и с развитием команды. Попробуй ещё раз.",
-                2: "Не совсем 💚 PV — это условные баллы объёма, присваиваемые товарам, а не деньги. Попробуй ещё раз.",
-                3: "Не совсем 💚 Структура включает левую и правую группы. Попробуй ещё раз.",
-            }
+            hints = {1: "Не совсем 💚 Маркетинг-план связан и с покупкой продукции, и с развитием команды. Попробуй ещё раз.", 2: "Не совсем 💚 PV — это условные баллы объёма, присваиваемые товарам, а не деньги. Попробуй ещё раз.", 3: "Не совсем 💚 Структура включает левую и правую группы. Попробуй ещё раз."}
             await message.reply_text(hints[step], reply_markup=CHECK_MENU)
             raise ApplicationHandlerStop
         if step == 1:
@@ -100,28 +87,39 @@ async def marketing_lesson_router(update, context):
         context.user_data["marketing_lesson_stage"] = "lesson_02"
         context.user_data.pop("marketing_quiz_step", None)
         with open(image_path, "rb") as image:
-            await message.reply_photo(
-                photo=image,
-                caption="🎓 УРОК 2 | ПЕРВЫЕ БОНУСЫ\n\nЗдесь разбираем три базовых вида бонусов: бонус наставника, бонус глубины и бинарный бонус (бонус ширины).\n\nВнимательно посмотри слайд. Когда будешь готова — нажми «📝 Проверить второй блок».",
-            )
+            await message.reply_photo(photo=image, caption="🎓 УРОК 2 | ПЕРВЫЕ БОНУСЫ\n\nЗдесь разбираем три базовых вида бонусов: бонус наставника, бонус глубины и бинарный бонус (бонус ширины).\n\nВнимательно посмотри слайд. Когда будешь готова — нажми «📝 Проверить второй блок».")
         await message.reply_text("Не спеши 💚 Сначала разберись, за какое действие начисляется каждый из трёх бонусов.", reply_markup=LESSON_02_MENU)
         raise ApplicationHandlerStop
 
     if text == "📝 Проверить второй блок":
         context.user_data["marketing_lesson_stage"] = "quiz_02"
-        await message.reply_text(
-            "💬 ПРОВЕРИМ ПОНИМАНИЕ\n\nОт чего зависит бинарный бонус (бонус ширины)?\n\nA — Только от количества лично приглашённых партнёров\nB — От товарооборота меньшей группы (стартовые наборы) и условий пакета\nC — Только от личных покупок",
-            reply_markup=CHECK_MENU,
-        )
+        context.user_data["marketing_quiz_step"] = 1
+        await message.reply_text("💬 ПРОВЕРИМ ПОНИМАНИЕ — 1/3\n\nЗа какое действие начисляется бонус наставника?\n\nA — За товарооборот меньшей группы\nB — За лично приглашённого партнёра, который приобрёл стартовый набор\nC — За любую личную покупку", reply_markup=CHECK_MENU)
         raise ApplicationHandlerStop
 
     if stage == "quiz_02" and text.upper() in {"A", "B", "C", "А", "Б", "В"}:
         normalized = {"А": "A", "Б": "B", "В": "C"}.get(text.upper(), text.upper())
-        if normalized != "B":
-            await message.reply_text("Не совсем 💚 Посмотри ещё раз на блок «Бинарный бонус (бонус ширины)»: учитываются меньшая группа (стартовые наборы) и условия твоего пакета. Попробуй ещё раз.", reply_markup=CHECK_MENU)
+        step = context.user_data.get("marketing_quiz_step", 1)
+        correct = {1: "B", 2: "B", 3: "B"}[step]
+        if normalized != correct:
+            hints = {
+                1: "Не совсем 💚 Бонус наставника связан с твоим лично приглашённым партнёром и покупкой им стартового набора. Попробуй ещё раз.",
+                2: "Не совсем 💚 Бонус глубины появляется, когда партнёры твоей структуры приглашают новых партнёров и команда развивается в глубину. Попробуй ещё раз.",
+                3: "Не совсем 💚 Бинарный бонус (бонус ширины) зависит от товарооборота меньшей группы по стартовым наборам и условий твоего пакета. Попробуй ещё раз.",
+            }
+            await message.reply_text(hints[step], reply_markup=CHECK_MENU)
+            raise ApplicationHandlerStop
+        if step == 1:
+            context.user_data["marketing_quiz_step"] = 2
+            await message.reply_text("Верно! 💚\n\n💬 ПРОВЕРИМ ПОНИМАНИЕ — 2/3\n\nКогда возникает бонус глубины?\n\nA — Когда ты сама покупаешь продукцию\nB — Когда партнёры твоей структуры приглашают новых партнёров и команда развивается в глубину\nC — Только когда растёт меньшая группа", reply_markup=CHECK_MENU)
+            raise ApplicationHandlerStop
+        if step == 2:
+            context.user_data["marketing_quiz_step"] = 3
+            await message.reply_text("Верно! 💚\n\n💬 ПРОВЕРИМ ПОНИМАНИЕ — 3/3\n\nОт чего зависит бинарный бонус (бонус ширины)?\n\nA — Только от количества лично приглашённых партнёров\nB — От товарооборота меньшей группы (стартовые наборы) и условий пакета\nC — Только от личных покупок", reply_markup=CHECK_MENU)
             raise ApplicationHandlerStop
         context.user_data["marketing_lesson_stage"] = "lesson_02_done"
-        await message.reply_text("Верно! 💚\n\nВторой блок пройден. Ты уже различаешь бонус наставника, бонус глубины и бинарный бонус (бонус ширины).\n\nСледующий блок подключим сюда следующим шагом.", reply_markup=NEXT_LESSON_MENU)
+        context.user_data.pop("marketing_quiz_step", None)
+        await message.reply_text("Отлично! 💚 Второй блок пройден.\n\nТеперь ты различаешь три первых вида бонусов:\n• бонус наставника;\n• бонус глубины;\n• бинарный бонус (бонус ширины).\n\nСледующий блок подключим сюда следующим шагом.", reply_markup=NEXT_LESSON_MENU)
         raise ApplicationHandlerStop
 
     if text == "💬 Задать вопрос по маркетинг-плану":
@@ -146,4 +144,4 @@ def patched_add_handler(self, handler, group=0):
     return _original_add_handler(self, handler, group=group)
 
 Application.add_handler = patched_add_handler
-print("GREENLEAF marketing lesson router v4 loaded", flush=True)
+print("GREENLEAF marketing lesson router v5 loaded", flush=True)
