@@ -90,17 +90,18 @@ async def marketing_lesson_router(update, context):
         raise ApplicationHandlerStop
 
 _original_add_handler = Application.add_handler
+_marketing_router_registered = set()
 
 def patched_add_handler(self, handler, group=0):
     callback = getattr(handler, "callback", None)
     callback_name = getattr(callback, "__name__", "")
-    # sitecustomize wraps the bot's chat callback as fast_newcomer_callback.
-    # Register before either the original or wrapped chat handler.
-    if callback_name in {"chat", "fast_newcomer_callback"} and not getattr(self, "_liya_marketing_router_added", False):
+    # Application uses slots, so do not set arbitrary attributes on it.
+    app_key = id(self)
+    if callback_name in {"chat", "fast_newcomer_callback"} and app_key not in _marketing_router_registered:
         _original_add_handler(self, MessageHandler(filters.TEXT & ~filters.COMMAND, marketing_lesson_router), group=-1)
-        self._liya_marketing_router_added = True
+        _marketing_router_registered.add(app_key)
         print(f"GREENLEAF marketing router registered before {callback_name}", flush=True)
     return _original_add_handler(self, handler, group=group)
 
 Application.add_handler = patched_add_handler
-print("GREENLEAF marketing lesson router v2 loaded", flush=True)
+print("GREENLEAF marketing lesson router v3 loaded", flush=True)
