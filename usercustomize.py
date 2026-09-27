@@ -8,9 +8,11 @@ LESSON_MENU = ReplyKeyboardMarkup([["📝 Проверить первый бло
 NEXT_LESSON_MENU = ReplyKeyboardMarkup([["➡️ Урок 2 — Первые бонусы"],["💬 Задать вопрос по маркетинг-плану"],["⬅️ Главное меню"]], resize_keyboard=True, is_persistent=True)
 LESSON_02_MENU = ReplyKeyboardMarkup([["📝 Проверить второй блок"],["💬 Задать вопрос по маркетинг-плану"],["⬅️ Главное меню"]], resize_keyboard=True, is_persistent=True)
 NEXT_BLOCK_MENU = ReplyKeyboardMarkup([["➡️ Следующий блок"],["💬 Задать вопрос по маркетинг-плану"],["⬅️ Главное меню"]], resize_keyboard=True, is_persistent=True)
+LESSON_03_MENU = ReplyKeyboardMarkup([["📝 Проверить третий блок"],["💬 Задать вопрос по маркетинг-плану"],["⬅️ Главное меню"]], resize_keyboard=True, is_persistent=True)
 CHECK_MENU = ReplyKeyboardMarkup([["A", "B", "C"], ["⬅️ Главное меню"]], resize_keyboard=True, is_persistent=True)
 LESSON_IMAGE = "marketing_lesson_01.png.png"
 LESSON_IMAGE_02 = "marketing_lesson_02.png.png"
+LESSON_IMAGE_03 = "marketing_lesson_03.png.png"
 
 async def marketing_lesson_router(update, context):
     message = getattr(update, "message", None)
@@ -58,7 +60,20 @@ async def marketing_lesson_router(update, context):
         context.user_data["marketing_lesson_stage"]="lesson_02_done"; context.user_data.pop("marketing_quiz_step",None)
         await message.reply_text("Отлично! 💚 Второй блок пройден.\n\nТеперь ты различаешь три первых вида бонусов:\n• бонус наставника;\n• бонус глубины;\n• бинарный бонус (бонус ширины).\n\nГотова двигаться дальше? 👇",reply_markup=NEXT_BLOCK_MENU); raise ApplicationHandlerStop
     if text == "➡️ Следующий блок":
-        await message.reply_text("Следующий учебный блок сейчас подключаем 💚", reply_markup=NEXT_BLOCK_MENU); raise ApplicationHandlerStop
+        image_path=os.path.join(os.path.dirname(__file__),LESSON_IMAGE_03)
+        if not os.path.exists(image_path): await message.reply_text("Третий учебный блок пока не найден на сервере. Попробуй ещё раз после обновления.",reply_markup=NEXT_BLOCK_MENU); raise ApplicationHandlerStop
+        context.user_data["marketing_lesson_stage"]="lesson_03"; context.user_data.pop("marketing_quiz_step",None)
+        with open(image_path,"rb") as image: await message.reply_photo(photo=image,caption="🎓 УРОК 3 | ЛИНЕЙНЫЙ МАРКЕТИНГ\n\nТеперь разбираем, как работает линейный маркетинг Greenleaf до 50 уровней глубины.\n\nНа слайде показаны уровни и проценты: 1–5 — 4%, 6–10 — 3%, 11–30 — 1%, 31–50 — 0,5%.\n\nКогда всё рассмотрела — нажми «📝 Проверить третий блок».")
+        await message.reply_text("Обрати внимание 💚 Вознаграждение рассчитывается от группового товарооборота структуры. Личные покупки также учитываются в соответствии с условиями маркетинг-плана.",reply_markup=LESSON_03_MENU); raise ApplicationHandlerStop
+    if text == "📝 Проверить третий блок":
+        context.user_data["marketing_lesson_stage"]="quiz_03"; context.user_data["marketing_quiz_step"]=1
+        await message.reply_text("💬 ПРОВЕРИМ ПОНИМАНИЕ\n\nНа каком количестве уровней может рассчитываться линейный маркетинг?\n\nA — Только на 5 уровнях\nB — До 10 уровней\nC — До 50 уровней",reply_markup=CHECK_MENU); raise ApplicationHandlerStop
+    if stage=="quiz_03" and text.upper() in {"A","B","C","А","Б","В"}:
+        normalized={"А":"A","Б":"B","В":"C"}.get(text.upper(),text.upper())
+        if normalized!="C":
+            await message.reply_text("Не совсем 💚 Посмотри на диапазоны уровней на слайде: линейный маркетинг может рассчитываться глубже. Попробуй ещё раз.",reply_markup=CHECK_MENU); raise ApplicationHandlerStop
+        context.user_data["marketing_lesson_stage"]="lesson_03_done"; context.user_data.pop("marketing_quiz_step",None)
+        await message.reply_text("Верно! 💚 Линейный маркетинг Greenleaf может рассчитываться до 50 уровней глубины.\n\nТретий блок пройден. Следующий учебный блок подключим следующим шагом 👇",reply_markup=NEXT_BLOCK_MENU); raise ApplicationHandlerStop
     if text == "💬 Задать вопрос по маркетинг-плану":
         context.user_data.pop("marketing_lesson_stage",None); context.user_data.pop("marketing_quiz_step",None); context.user_data["mode"]="📊 Маркетинг-план"; context.user_data["dialog_history"]=[]
         await message.reply_text("💬 Напиши свой вопрос по маркетинг-плану Greenleaf. Лия ответит по подтверждённой CURRENT-базе и не будет додумывать отсутствующие правила.",reply_markup=MARKETING_MENU); raise ApplicationHandlerStop
@@ -70,4 +85,4 @@ def patched_add_handler(self,handler,group=0):
         _original_add_handler(self,MessageHandler(filters.TEXT & ~filters.COMMAND,marketing_lesson_router),group=-1); _marketing_router_registered.add(app_key); print(f"GREENLEAF marketing router registered before {callback_name}",flush=True)
     return _original_add_handler(self,handler,group=group)
 Application.add_handler=patched_add_handler
-print("GREENLEAF marketing lesson router v6 loaded",flush=True)
+print("GREENLEAF marketing lesson router v7 loaded",flush=True)
