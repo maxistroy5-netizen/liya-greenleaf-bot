@@ -10,6 +10,7 @@ try:
     import marketing_width_recovery  # noqa: F401
     import marketing_three_bonuses  # noqa: F401
     import marketing_income_growth  # noqa: F401
+    import marketing_lesson_navigation  # noqa: F401
     print("GREENLEAF marketing extension explicitly loaded", flush=True)
 except Exception as exc:
     print(f"GREENLEAF marketing extension failed: {type(exc).__name__}: {exc}", flush=True)
