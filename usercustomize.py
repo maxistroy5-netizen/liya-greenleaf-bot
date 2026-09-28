@@ -10,12 +10,14 @@ LESSON_02_MENU = ReplyKeyboardMarkup([["📝 Проверить второй б�
 NEXT_BLOCK_MENU = ReplyKeyboardMarkup([["➡️ Следующий блок"],["💬 Задать вопрос по маркетинг-плану"],["⬅️ Главное меню"]], resize_keyboard=True, is_persistent=True)
 LESSON_03_MENU = ReplyKeyboardMarkup([["📝 Проверить третий блок"],["💬 Задать вопрос по маркетинг-плану"],["⬅️ Главное меню"]], resize_keyboard=True, is_persistent=True)
 LESSON_04_MENU = ReplyKeyboardMarkup([["📝 Проверить четвёртый блок"],["💬 Задать вопрос по маркетинг-плану"],["⬅️ Главное меню"]], resize_keyboard=True, is_persistent=True)
+LESSON_05_MENU = ReplyKeyboardMarkup([["📝 Проверить пятый блок"],["💬 Задать вопрос по маркетинг-плану"],["⬅️ Главное меню"]], resize_keyboard=True, is_persistent=True)
 CHECK_MENU = ReplyKeyboardMarkup([["A", "B", "C"], ["⬅️ Главное меню"]], resize_keyboard=True, is_persistent=True)
 
 LESSON_IMAGE = "marketing_lesson_01.png.png"
 LESSON_IMAGE_02 = "marketing_lesson_02.png.png"
 LESSON_IMAGE_03 = "marketing_lesson_03.png.png"
 LESSON_IMAGE_04 = "marketing_lesson_04.png.png"
+LESSON_IMAGE_05 = "marketing_lesson_05.png.png"
 
 async def marketing_lesson_router(update, context):
     message = getattr(update, "message", None)
@@ -107,7 +109,29 @@ async def marketing_lesson_router(update, context):
         if step==2:
             context.user_data["marketing_quiz_step"]=3; await message.reply_text("Верно! 💚\n\n💬 ПРОВЕРИМ ПОНИМАНИЕ — 3/3\n\nЧто должно произойти для образования новой бинарной глубины?\n\nA — Достаточно одного нового партнёра только в левой группе\nB — Достаточно одного нового партнёра только в правой группе\nC — Должен появиться новый партнёр и в левой, и в правой группе",reply_markup=CHECK_MENU); raise ApplicationHandlerStop
         context.user_data["marketing_lesson_stage"]="lesson_04_done"; context.user_data.pop("marketing_quiz_step",None)
-        await message.reply_text("Отлично! 💚 Четвёртый блок пройден.\n\nТеперь ты понимаешь:\n• когда возникает бонус глубины;\n• фиксированную сумму за новую бинарную глубину;\n• как формируется новая глубина в левой и правой группе.\n\nСледующий блок подключим следующим шагом 👇",reply_markup=NEXT_BLOCK_MENU); raise ApplicationHandlerStop
+        await message.reply_text("Отлично! 💚 Четвёртый блок пройден.\n\nТеперь ты понимаешь:\n• когда возникает бонус глубины;\n• фиксированную сумму за новую бинарную глубину;\n• как формируется новая глубина в левой и правой группе.\n\nГотова двигаться дальше? 👇",reply_markup=NEXT_BLOCK_MENU); raise ApplicationHandlerStop
+
+    if text == "➡️ Следующий блок" and stage=="lesson_04_done":
+        image_path=os.path.join(os.path.dirname(__file__),LESSON_IMAGE_05)
+        if not os.path.exists(image_path): await message.reply_text("Пятый учебный блок пока не найден на сервере. Попробуй ещё раз после обновления.",reply_markup=NEXT_BLOCK_MENU); raise ApplicationHandlerStop
+        context.user_data["marketing_lesson_stage"]="lesson_05"; context.user_data.pop("marketing_quiz_step",None)
+        with open(image_path,"rb") as image: await message.reply_photo(photo=image,caption="🎓 УРОК 5 | БОНУС ШИРИНЫ\n\nТеперь подробно разбираем бонус ширины: он рассчитывается от товарооборота меньшей группы по стартовым наборам.\n\nПроцент зависит от стартового пакета: Платина — 10%, Бриллиант — 12%, Корона — 15%.\n\nКогда всё рассмотрела — нажми «📝 Проверить пятый блок».")
+        await message.reply_text("Обрати внимание 💚 В расчёт берётся меньшая группа по стартовым наборам, а процент зависит от твоего пакета.",reply_markup=LESSON_05_MENU); raise ApplicationHandlerStop
+
+    if text == "📝 Проверить пятый блок":
+        context.user_data["marketing_lesson_stage"]="quiz_05"; context.user_data["marketing_quiz_step"]=1
+        await message.reply_text("💬 ПРОВЕРИМ ПОНИМАНИЕ — 1/3\n\nОт объёма какой группы рассчитывается бонус ширины?\n\nA — От большей группы\nB — От меньшей группы (стартовые наборы)\nC — Только от личных покупок",reply_markup=CHECK_MENU); raise ApplicationHandlerStop
+
+    if stage=="quiz_05" and text.upper() in {"A","B","C","А","Б","В"}:
+        normalized={"А":"A","Б":"B","В":"C"}.get(text.upper(),text.upper()); step=context.user_data.get("marketing_quiz_step",1); correct={1:"B",2:"A",3:"C"}[step]
+        if normalized!=correct:
+            hints={1:"Не совсем 💚 Бонус ширины рассчитывается от товарооборота меньшей группы по стартовым наборам. Попробуй ещё раз.",2:"Не совсем 💚 Для пакета Платина на слайде указан бонус ширины 10%. Попробуй ещё раз.",3:"Не совсем 💚 На слайде указано: Бриллиант — 12%, Корона — 15%. Попробуй ещё раз."}; await message.reply_text(hints[step],reply_markup=CHECK_MENU); raise ApplicationHandlerStop
+        if step==1:
+            context.user_data["marketing_quiz_step"]=2; await message.reply_text("Верно! 💚\n\n💬 ПРОВЕРИМ ПОНИМАНИЕ — 2/3\n\nКакой процент бонуса ширины указан для пакета Платина?\n\nA — 10%\nB — 12%\nC — 15%",reply_markup=CHECK_MENU); raise ApplicationHandlerStop
+        if step==2:
+            context.user_data["marketing_quiz_step"]=3; await message.reply_text("Верно! 💚\n\n💬 ПРОВЕРИМ ПОНИМАНИЕ — 3/3\n\nКакие проценты указаны для Бриллианта и Короны?\n\nA — Бриллиант 10%, Корона 12%\nB — Бриллиант 15%, Корона 12%\nC — Бриллиант 12%, Корона 15%",reply_markup=CHECK_MENU); raise ApplicationHandlerStop
+        context.user_data["marketing_lesson_stage"]="lesson_05_done"; context.user_data.pop("marketing_quiz_step",None)
+        await message.reply_text("Отлично! 💚 Пятый блок пройден.\n\nТеперь ты понимаешь, как рассчитывается бонус ширины и почему процент зависит от стартового пакета.\n\nСледующий блок подключим следующим шагом 👇",reply_markup=NEXT_BLOCK_MENU); raise ApplicationHandlerStop
 
     if text == "💬 Задать вопрос по маркетинг-плану":
         context.user_data.pop("marketing_lesson_stage",None); context.user_data.pop("marketing_quiz_step",None); context.user_data["mode"]="📊 Маркетинг-план"; context.user_data["dialog_history"]=[]
@@ -121,4 +145,4 @@ def patched_add_handler(self,handler,group=0):
         _original_add_handler(self,MessageHandler(filters.TEXT & ~filters.COMMAND,marketing_lesson_router),group=-1); _marketing_router_registered.add(app_key); print(f"GREENLEAF marketing router registered before {callback_name}",flush=True)
     return _original_add_handler(self,handler,group=group)
 Application.add_handler=patched_add_handler
-print("GREENLEAF marketing lesson router v8 loaded",flush=True)
+print("GREENLEAF marketing lesson router v9 loaded",flush=True)
