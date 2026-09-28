@@ -1,4 +1,10 @@
-"""Recover lesson navigation after Render restart and connect Width Bonus reliably."""
+"""Connect Width Bonus without guessing a user's progress after a Render restart.
+
+Important: context.user_data is in-memory in the current bot setup. If Render restarts,
+the stage can be None while Telegram still shows an old persistent keyboard. We must
+not interpret that as permission to send lesson 5 again, because that rewinds users
+who have already completed later lessons.
+"""
 import os
 from telegram import ReplyKeyboardMarkup
 from telegram.ext import ApplicationHandlerStop
@@ -15,9 +21,10 @@ async def width_recovery_router(update, context):
     text = message.text.strip()
     stage = context.user_data.get("marketing_lesson_stage")
 
-    # Render restart clears in-memory user_data. The visible Next button may remain
-    # in Telegram, so allow it to resume at the Width Bonus during this sequence.
-    if text == "➡️ Следующий блок" and stage in {None, "lesson_05_done", "bonus_mentor_04_done"}:
+    # Only advance to Width Bonus from a stage that explicitly precedes it.
+    # Never use stage=None as a fallback: after a Render restart that would
+    # incorrectly rewind users who had already reached lessons 6, 7 or 8.
+    if text == "➡️ Следующий блок" and stage in {"lesson_05_done", "bonus_mentor_04_done"}:
         image_path = os.path.join(os.path.dirname(__file__), WIDTH_IMAGE)
         if not os.path.exists(image_path):
             await message.reply_text("Слайд «Бонус ширины» пока не найден на сервере.", reply_markup=uc.NEXT_BLOCK_MENU)
@@ -38,4 +45,4 @@ async def width_recovery_router(update, context):
     return await _original_router(update, context)
 
 uc.marketing_lesson_router = width_recovery_router
-print("GREENLEAF width bonus recovery loaded", flush=True)
+print("GREENLEAF width bonus connector loaded", flush=True)
