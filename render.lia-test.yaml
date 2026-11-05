@@ -20,7 +20,10 @@ services:
       - key: LIA_PREVIEW_TELEGRAM_TOKEN
         sync: false
       - key: OPENAI_API_KEY
-        sync: false
+        fromService:
+          type: web
+          name: liya-greenleaf-bot
+          envVarKey: OPENAI_API_KEY
       - key: LIA_PREVIEW_MODEL
         sync: false
       - key: LIA_PREVIEW_ALLOWED_USER_IDS
