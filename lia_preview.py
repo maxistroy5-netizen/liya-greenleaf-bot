@@ -20,6 +20,7 @@ from telegram.ext import Application, CallbackQueryHandler, CommandHandler, Mess
 
 from lia_languages import LANGUAGES, LanguageStore, language_choices, language_instruction, parse_language_choice, text
 from lia_preview_copy import copy
+from lia_course import AVAILABLE_LANGUAGES, CourseResult, CourseStore, load_catalog, render
 
 LOG = logging.getLogger(__name__)
 MODES = {
@@ -59,10 +60,21 @@ def split_message(value, limit=3500):
 
 
 def menu(code):
-    return InlineKeyboardMarkup([
+    rows = [
         [InlineKeyboardButton(copy(code, action), callback_data=f"nav:{action}")]
         for action in ("learn", "practice", "quiz", "ask", "sources", "language")
-    ])
+    ]
+    if code in AVAILABLE_LANGUAGES:
+        rows.insert(0, [InlineKeyboardButton(load_catalog(code)["ui"]["course"], callback_data="course:menu")])
+    return InlineKeyboardMarkup(rows)
+
+
+def notice(code):
+    if code == "ru":
+        return "Тестовая версия: диалог и 8 текстовых уроков. Визитки, изображения и PDF пока остаются в основной Лии."
+    if code == "uz":
+        return "Sinov versiyasi: suhbat va 8 ta matnli dars. Vizit kartalari, rasmlar va PDF fayllari hozircha asosiy Liyada qoladi."
+    return copy(code, "notice")
 
 
 def picker():
@@ -93,9 +105,10 @@ def load_sources():
 
 
 class Preview:
-    def __init__(self, store, client, model, testers, sources):
+    def __init__(self, store, client, model, testers, sources, course_store=None):
         self.store, self.client, self.model = store, client, model
         self.testers, self.sources = testers, sources
+        self.courses = course_store
 
     def allowed(self, update):
         return (update.effective_user is not None and update.effective_chat is not None
@@ -114,7 +127,7 @@ class Preview:
         if not code:
             return await self.choose(update, context)
         # /start does not erase an ongoing learning conversation or preference.
-        await update.effective_message.reply_text(text(code, "greeting") + "\n\n" + copy(code, "notice"), reply_markup=menu(code))
+        await update.effective_message.reply_text(text(code, "greeting") + "\n\n" + notice(code), reply_markup=menu(code))
 
     async def callback(self, update, context):
         query = update.callback_query
@@ -130,11 +143,19 @@ class Preview:
                 return await self.choose(update, context)
             self.store.set(update.effective_user.id, code)
             # History and active mode deliberately survive a language switch.
-            await update.effective_message.reply_text(text(code, "saved") + "\n\n" + text(code, "greeting") + "\n\n" + copy(code, "notice"), reply_markup=menu(code))
+            await update.effective_message.reply_text(text(code, "saved") + "\n\n" + text(code, "greeting") + "\n\n" + notice(code), reply_markup=menu(code))
+            if self.courses and context.user_data.get("surface") == "course" and code in AVAILABLE_LANGUAGES:
+                await self.show_course(update, self.courses.act(update.effective_user.id, "resume"), code)
             return
         code = self.store.get(update.effective_user.id)
         if not code or payload == "nav:language":
             return await self.choose(update, context)
+        if payload.startswith("course:"):
+            return await self.course_callback(update, context, code, payload)
+        if payload == "nav:home":
+            context.user_data["surface"] = "dialogue"
+            await update.effective_message.reply_text(copy(code, "title"), reply_markup=menu(code))
+            return
         if payload == "nav:sources":
             await update.effective_message.reply_text(copy(code, "sources") + "\n\n" + SOURCE_URLS, reply_markup=menu(code))
             return
@@ -142,6 +163,7 @@ class Preview:
         if not payload.startswith("nav:") or mode not in MODES:
             return
         context.user_data["mode"] = mode
+        context.user_data["surface"] = "dialogue"
         context.user_data["history"] = []
         await self.answer(update, context, "Begin the selected mode. This is a navigation action, not a learner answer.")
 
@@ -150,7 +172,54 @@ class Preview:
             return
         if not self.store.get(update.effective_user.id):
             return await self.choose(update, context)
+        code = self.store.get(update.effective_user.id)
+        if self.courses and context.user_data.get("surface") == "course" and code in AVAILABLE_LANGUAGES:
+            value = (update.effective_message.text or "").strip().upper()
+            answer = {"А": "A", "Б": "B", "В": "C"}.get(value, value)
+            state = self.courses.get(update.effective_user.id)
+            if answer in {"A", "B", "C"} and state["phase"] == "quiz":
+                result = self.courses.act(update.effective_user.id, "answer", answer=answer, expected_revision=state["revision"])
+            else:
+                result = CourseResult(state)
+            return await self.show_course(update, result, code)
         await self.answer(update, context, update.effective_message.text)
+
+    async def show_course(self, update, result, code):
+        body, buttons = render(load_catalog(code), result)
+        markup = InlineKeyboardMarkup([[InlineKeyboardButton(label, callback_data=payload)] for label, payload in buttons])
+        for chunk in split_message(body):
+            await update.effective_message.reply_text(chunk, reply_markup=markup)
+
+    async def course_callback(self, update, context, code, payload):
+        if not self.courses or code not in AVAILABLE_LANGUAGES:
+            # Keep unsupported locales out of the source-language course.
+            await update.effective_message.reply_text(notice(code), reply_markup=menu(code))
+            return
+        context.user_data["surface"] = "course"
+        data = load_catalog(code)
+        parts = payload.split(":")
+        if payload == "course:menu":
+            ui = data["ui"]
+            rows = [[InlineKeyboardButton(ui["resume"], callback_data="course:resume")]]
+            rows.extend([InlineKeyboardButton(f'{ui["lesson"]} {item["id"]} | {item["title"]}', callback_data=f'course:open:{item["id"]}')]
+                         for item in data["lessons"])
+            rows.append([InlineKeyboardButton(ui["home"], callback_data="nav:home")])
+            await update.effective_message.reply_text(ui["title"], reply_markup=InlineKeyboardMarkup(rows))
+            return
+        try:
+            if payload == "course:resume":
+                result = self.courses.act(update.effective_user.id, "resume")
+            elif len(parts) == 3 and parts[1] == "open":
+                result = self.courses.act(update.effective_user.id, "open", lesson=int(parts[2]))
+            elif len(parts) == 3 and parts[1] in {"quiz", "next"}:
+                result = self.courses.act(update.effective_user.id, parts[1], expected_revision=self.courses.parse_revision(parts[2]))
+            elif len(parts) == 4 and parts[1] == "answer":
+                result = self.courses.act(update.effective_user.id, "answer", expected_revision=self.courses.parse_revision(parts[2]), answer=parts[3])
+            else:
+                raise ValueError("Unsupported course action")
+        except ValueError:
+            result = CourseResult(self.courses.get(update.effective_user.id), "stale")
+        await self.show_course(update, result, code)
 
     async def answer(self, update, context, user_text):
         code = self.store.get(update.effective_user.id)
@@ -184,7 +253,8 @@ def main():
     testers = validate_config(os.environ)
     client = AsyncOpenAI(api_key=os.environ["OPENAI_API_KEY"], timeout=45.0, max_retries=1)
     preview = Preview(LanguageStore(os.environ["LIA_LANGUAGE_DB"]), client,
-                      os.environ["LIA_PREVIEW_MODEL"], testers, load_sources())
+                      os.environ["LIA_PREVIEW_MODEL"], testers, load_sources(),
+                      CourseStore(os.environ["LIA_LANGUAGE_DB"]))
 
     async def close_client(app):
         await client.close()
@@ -193,7 +263,7 @@ def main():
            .concurrent_updates(False).post_shutdown(close_client).build())
     app.add_handler(CommandHandler("start", preview.start))
     app.add_handler(CommandHandler("language", preview.choose))
-    app.add_handler(CallbackQueryHandler(preview.callback, pattern=r"^(lang:|nav:)"))
+    app.add_handler(CallbackQueryHandler(preview.callback, pattern=r"^(lang:|nav:|course:)"))
     app.add_handler(MessageHandler(filters.ChatType.PRIVATE & filters.TEXT & ~filters.COMMAND, preview.message))
     app.run_polling(drop_pending_updates=False)
 

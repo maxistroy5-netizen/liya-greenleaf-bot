@@ -5,8 +5,9 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 from lia_languages import LANGUAGES, LanguageStore
-from lia_preview import Preview, menu, picker, split_message, validate_config
+from lia_preview import Preview, menu, notice, picker, split_message, validate_config
 from lia_preview_copy import COPY, KEYS, copy
+from lia_course import CourseStore, load_catalog, revision_token
 
 
 def update(user_id=10, chat_type="private", payload="nav:ask", message_text="Что такое PV?"):
@@ -23,8 +24,10 @@ class CopyTests(unittest.TestCase):
         for code in LANGUAGES:
             self.assertEqual(len(COPY[code]), len(KEYS))
             self.assertTrue(all(COPY[code]))
-            self.assertEqual([row[0].callback_data for row in menu(code).inline_keyboard],
-                             ["nav:learn", "nav:practice", "nav:quiz", "nav:ask", "nav:sources", "nav:language"])
+            expected = ["nav:learn", "nav:practice", "nav:quiz", "nav:ask", "nav:sources", "nav:language"]
+            if code in {"ru", "uz"}:
+                expected.insert(0, "course:menu")
+            self.assertEqual([row[0].callback_data for row in menu(code).inline_keyboard], expected)
         self.assertEqual(sum(len(row) for row in picker().inline_keyboard), 9)
 
     def test_astral_unicode_never_exceeds_telegram_limit(self):
@@ -73,7 +76,7 @@ class PreviewTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(self.store.get(10), code)
             self.assertEqual(self.context.user_data["mode"], "quiz")
             self.assertEqual(len(self.context.user_data["history"]), 1)
-            self.assertIn(copy(code, "notice"), event.effective_message.reply_text.call_args.args[0])
+            self.assertIn(notice(code), event.effective_message.reply_text.call_args.args[0])
         self.assertEqual(self.store.get(20), "tg")
         self.create.assert_not_awaited()
 
@@ -120,6 +123,43 @@ class PreviewTests(unittest.IsolatedAsyncioTestCase):
             await self.preview.callback(event, self.context)
             event.effective_message.reply_text.assert_not_awaited()
         self.assertIsNone(self.store.get(30))
+        self.create.assert_not_awaited()
+
+    async def test_course_question_switches_language_without_losing_position(self):
+        self.store.set(10, "ru")
+        self.preview.courses = CourseStore(self.store.path)
+        await self.preview.callback(update(payload="course:open:1"), self.context)
+        state = self.preview.courses.get(10)
+        await self.preview.callback(update(payload="course:quiz:" + revision_token(self.preview.courses.version, state["revision"])), self.context)
+        await self.preview.message(update(message_text="B"), self.context)
+        self.assertEqual(self.preview.courses.get(10)["question"], 1)
+        event = update(payload="lang:uz")
+        await self.preview.callback(event, self.context)
+        self.assertEqual(self.preview.courses.get(10)["question"], 1)
+        self.assertIn(load_catalog("uz")["lessons"][0]["quiz"][1]["prompt"], event.effective_message.reply_text.call_args.args[0])
+        self.create.assert_not_awaited()
+
+    async def test_course_callback_duplicate_is_rejected_in_telegram_adapter(self):
+        self.store.set(10, "uz")
+        self.preview.courses = CourseStore(self.store.path)
+        state = self.preview.courses.act(10, "quiz", expected_revision=0).state
+        payload = "course:answer:" + revision_token(self.preview.courses.version, state["revision"]) + ":B"
+        await self.preview.callback(update(payload=payload), self.context)
+        event = update(payload=payload)
+        await self.preview.callback(event, self.context)
+        self.assertIn(load_catalog("uz")["ui"]["stale"], event.effective_message.reply_text.call_args.args[0])
+        self.assertEqual(self.preview.courses.get(10)["question"], 1)
+        self.create.assert_not_awaited()
+
+    async def test_course_without_translation_keeps_language_and_progress(self):
+        self.store.set(10, "fr")
+        self.preview.courses = CourseStore(self.store.path)
+        before = self.preview.courses.get(10)
+        event = update(payload="course:open:1")
+        await self.preview.callback(event, self.context)
+        self.assertEqual(self.store.get(10), "fr")
+        self.assertEqual(self.preview.courses.get(10), before)
+        self.assertIn(notice("fr"), event.effective_message.reply_text.call_args.args[0])
         self.create.assert_not_awaited()
 
 

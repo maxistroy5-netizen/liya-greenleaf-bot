@@ -1,0 +1,319 @@
+{
+  "version": "text-course-v1",
+  "language": "uz",
+  "status": "draft-native-review-required",
+  "ui": {
+    "course": "📚 8 ta dars",
+    "title": "Darsni tanlang",
+    "lesson": "Dars",
+    "check": "📝 Tushunganingizni tekshirish",
+    "next": "➡️ Keyingi dars",
+    "resume": "▶️ Davom ettirish",
+    "home": "⬅️ Menyu",
+    "done": "💚 Dars yakunlandi.",
+    "wrong": "Qayta urinib ko‘ring.",
+    "stale": "Bu tugma eskirgan. Joriy savoldan davom etamiz.",
+    "unavailable": "Tayyor darslarning bu tildagi tarjimasi hali ulanmagan. Liya bilan tanlangan tilda suhbatlashish mumkin.",
+    "review": "Matnli sinov versiyasi. Summalar — dastlabki materiallardagi misollar, daromad va’dasi yoki boshqa bozor shartlari emas."
+  },
+  "lessons": [
+    {
+      "id": "1",
+      "title": "MARKETING-REJA ASOSLARI",
+      "body": "Marketing-reja mahsulot xarid qilish va jamoani rivojlantirish bilan bog‘liq.\n\nPV — mahsulotlarga beriladigan shartli hajm ballari. PV pul emas va o‘z-o‘zidan daromad miqdorini ko‘rsatmaydi.\n\nTuzilma chap va o‘ng guruhlardan iborat.",
+      "quiz": [
+        {
+          "id": "l1q1",
+          "prompt": "Greenleaf marketing-rejasi nimaga asoslangan?",
+          "options": {
+            "A": "Faqat mahsulot sotishga",
+            "B": "Mahsulot xarid qilish va jamoani rivojlantirishga",
+            "C": "Faqat yangi hamkorlarni jalb qilishga"
+          },
+          "correct": "B",
+          "hint": "To‘liq emas 💚 Marketing-reja mahsulot xarid qilish bilan ham, jamoani rivojlantirish bilan ham bog‘liq. Qayta urinib ko‘ring."
+        },
+        {
+          "id": "l1q2",
+          "prompt": "Greenleaf tizimida PV nima?",
+          "options": {
+            "A": "Darhol to‘lanadigan pul",
+            "B": "Mahsulotlarga beriladigan shartli ballar",
+            "C": "Mahsulot uchun chegirma miqdori"
+          },
+          "correct": "B",
+          "hint": "To‘liq emas 💚 PV — mahsulotlarga beriladigan shartli hajm ballari, pul emas. Qayta urinib ko‘ring."
+        },
+        {
+          "id": "l1q3",
+          "prompt": "Greenleaf tuzilmasi qanday tashkil etilgan?",
+          "options": {
+            "A": "Faqat chap guruh",
+            "B": "Faqat o‘ng guruh",
+            "C": "Chap va o‘ng guruhlar"
+          },
+          "correct": "C",
+          "hint": "To‘liq emas 💚 Tuzilma chap va o‘ng guruhlardan iborat. Qayta urinib ko‘ring."
+        }
+      ]
+    },
+    {
+      "id": "2",
+      "title": "DASTLABKI BONUSLAR",
+      "body": "Bonuslarning dastlabki uch turi: ustoz bonusi, chuqurlik bonusi va binar bonus (kenglik bonusi).\n\nUstoz bonusi shaxsan taklif qilingan hamkor va uning boshlang‘ich to‘plam xarid qilishi bilan bog‘liq.\n\nChuqurlik bonusi yangi binar chuqurlik paydo bo‘lishi bilan bog‘liq: chapda ham, o‘ngda ham yangi hamkor bo‘lishi kerak.\n\nKenglik bonusi kichikroq guruhning boshlang‘ich to‘plamlar bo‘yicha tovar aylanmasiga va paket shartlariga bog‘liq.",
+      "quiz": [
+        {
+          "id": "l2q1",
+          "prompt": "Ustoz bonusi qaysi harakat uchun hisoblanadi?",
+          "options": {
+            "A": "Kichikroq guruhning tovar aylanmasi uchun",
+            "B": "Boshlang‘ich to‘plam xarid qilgan, shaxsan taklif etilgan hamkor uchun",
+            "C": "Istalgan shaxsiy xarid uchun"
+          },
+          "correct": "B",
+          "hint": "To‘liq emas 💚 Ustoz bonusi shaxsan taklif qilgan hamkoringiz va uning boshlang‘ich to‘plam xarid qilishi bilan bog‘liq. Qayta urinib ko‘ring."
+        },
+        {
+          "id": "l2q2",
+          "prompt": "Chuqurlik bonusi qachon yuzaga keladi?",
+          "options": {
+            "A": "O‘zingiz mahsulot xarid qilganingizda",
+            "B": "Tuzilmangizdagi hamkorlar yangi hamkorlarni taklif qilib, jamoa chuqurlik bo‘yicha rivojlanganda",
+            "C": "Faqat kichikroq guruh o‘sganda"
+          },
+          "correct": "B",
+          "hint": "To‘liq emas 💚 Chuqurlik bonusi tuzilmangizdagi hamkorlar yangi hamkorlarni taklif qilib, jamoa chuqurlik bo‘yicha rivojlanganda yuzaga keladi. Qayta urinib ko‘ring."
+        },
+        {
+          "id": "l2q3",
+          "prompt": "Binar bonus (kenglik bonusi) nimaga bog‘liq?",
+          "options": {
+            "A": "Faqat shaxsan taklif qilingan hamkorlar soniga",
+            "B": "Kichikroq guruhning tovar aylanmasiga (boshlang‘ich to‘plamlar) va paket shartlariga",
+            "C": "Faqat shaxsiy xaridlarga"
+          },
+          "correct": "B",
+          "hint": "To‘liq emas 💚 Binar bonus (kenglik bonusi) kichikroq guruhning boshlang‘ich to‘plamlar bo‘yicha tovar aylanmasiga va paketingiz shartlariga bog‘liq. Qayta urinib ko‘ring."
+        }
+      ]
+    },
+    {
+      "id": "3",
+      "title": "CHUQURLIK BONUSI",
+      "body": "Endi uch bonusdan birinchisi — chuqurlik bonusini batafsil ko‘rib chiqamiz: u qachon yuzaga keladi va qanday hisoblanadi.\n\nYangi binar chuqurlik uchun belgilangan summa 88 $. Slaydda hisoblash misoli ko‘rsatilgan: 88 $ × 70 ₽ × 0,95 = 5 852 ₽.",
+      "quiz": [
+        {
+          "id": "l3q1",
+          "prompt": "Chuqurlik bonusini qachon olasiz?",
+          "options": {
+            "A": "Shaxsan bitta yangi hamkorni taklif qilganingizda",
+            "B": "Tuzilmada chap va o‘ng guruhlarning har birida yangi hamkor paydo bo‘lganda — yangi binar chuqurlik",
+            "C": "Faqat shaxsiy mahsulot xaridida"
+          },
+          "correct": "B",
+          "hint": "To‘liq emas 💚 Chuqurlik bonusi yangi binar chuqurlik paydo bo‘lganda yuzaga keladi — chap va o‘ng guruhlarning har birida bittadan yangi hamkor. Qayta urinib ko‘ring."
+        },
+        {
+          "id": "l3q2",
+          "prompt": "Yangi binar chuqurlik uchun qanday belgilangan summa ko‘rsatilgan?",
+          "options": {
+            "A": "70 $",
+            "B": "88 $",
+            "C": "95 $"
+          },
+          "correct": "B",
+          "hint": "To‘liq emas 💚 Slaydda yangi binar chuqurlik uchun belgilangan 88 $ summa ko‘rsatilgan. Qayta urinib ko‘ring."
+        },
+        {
+          "id": "l3q3",
+          "prompt": "Yangi binar chuqurlik hosil bo‘lishi uchun nima yuz berishi kerak?",
+          "options": {
+            "A": "Faqat chap guruhda yangi hamkor",
+            "B": "Faqat o‘ng guruhda yangi hamkor",
+            "C": "Chap guruhda ham, o‘ng guruhda ham yangi hamkor"
+          },
+          "correct": "C",
+          "hint": "To‘liq emas 💚 Yangi binar chuqurlik uchun chap guruhda ham, o‘ng guruhda ham yangi hamkor kerak. Qayta urinib ko‘ring."
+        }
+      ]
+    },
+    {
+      "id": "4",
+      "title": "USTOZ BONUSI",
+      "body": "Endi ustoz bonusini batafsil ko‘rib chiqamiz. Uni shaxsan taklif qilgan yangi hamkoringiz boshlang‘ich to‘plam xarid qilganda olasiz.\n\nSlaydda misol ko‘rsatilgan: 275 PV × 5% × 70 ₽ × 0,95 = 914 ₽.",
+      "quiz": [
+        {
+          "id": "l4q1",
+          "prompt": "Ustoz bonusi nima uchun hisoblanadi?",
+          "options": {
+            "A": "Boshlang‘ich to‘plam xarid qilgan, shaxsan taklif etilgan hamkor uchun",
+            "B": "Kichikroq guruhning tovar aylanmasi uchun",
+            "C": "Istalgan shaxsiy xarid uchun"
+          },
+          "correct": "A",
+          "hint": "To‘liq emas 💚 Ustoz bonusi boshlang‘ich to‘plam xarid qilgan, shaxsan taklif etilgan hamkor uchun hisoblanadi. Qayta urinib ko‘ring."
+        },
+        {
+          "id": "l4q2",
+          "prompt": "Slayddagi misolda ustoz bonusining qanday foizi ko‘rsatilgan?",
+          "options": {
+            "A": "3%",
+            "B": "5%",
+            "C": "10%"
+          },
+          "correct": "B",
+          "hint": "To‘liq emas 💚 Slayddagi misolda ustoz bonusi 5% deb ko‘rsatilgan. Qayta urinib ko‘ring."
+        },
+        {
+          "id": "l4q3",
+          "prompt": "275 PV × 5% × 70 ₽ × 0,95 misolida qanday natija ko‘rsatilgan?",
+          "options": {
+            "A": "585 ₽",
+            "B": "1 828 ₽",
+            "C": "914 ₽"
+          },
+          "correct": "C",
+          "hint": "To‘liq emas 💚 Slayddagi misolda hisoblash natijasi 914 ₽. Qayta urinib ko‘ring."
+        }
+      ]
+    },
+    {
+      "id": "5",
+      "title": "KENGLIK BONUSI",
+      "body": "Endi kenglik bonusini batafsil ko‘rib chiqamiz. U kichikroq guruhning boshlang‘ich to‘plamlar bo‘yicha tovar aylanmasidan hisoblanadi.\n\nFoiz paketingizga bog‘liq: Platina — 10%, Brilliant — 12%, Korona — 15%.\n\nSlaydda Platina uchun misol ko‘rsatilgan: 275 PV × 10% × 70 ₽ × 0,95 = 1 828 ₽.",
+      "quiz": [
+        {
+          "id": "l5q1",
+          "prompt": "Kenglik bonusi qaysi guruhning tovar aylanmasidan hisoblanadi?",
+          "options": {
+            "A": "Kattaroq guruhning",
+            "B": "Kichikroq guruhning",
+            "C": "Faqat shaxsiy tovar aylanmasidan"
+          },
+          "correct": "B",
+          "hint": "To‘liq emas 💚 Kenglik bonusi kichikroq guruhning boshlang‘ich to‘plamlar bo‘yicha tovar aylanmasidan hisoblanadi. Qayta urinib ko‘ring."
+        },
+        {
+          "id": "l5q2",
+          "prompt": "Brilliant — 825 PV paketi uchun kenglik bonusining qanday foizi ko‘rsatilgan?",
+          "options": {
+            "A": "10%",
+            "B": "12%",
+            "C": "15%"
+          },
+          "correct": "B",
+          "hint": "To‘liq emas 💚 Slaydda Brilliant paketi uchun kenglik bonusi 12% deb ko‘rsatilgan. Qayta urinib ko‘ring."
+        },
+        {
+          "id": "l5q3",
+          "prompt": "Platina uchun 275 PV × 10% × 70 ₽ × 0,95 misolida qanday natija ko‘rsatilgan?",
+          "options": {
+            "A": "914 ₽",
+            "B": "5 852 ₽",
+            "C": "1 828 ₽"
+          },
+          "correct": "C",
+          "hint": "To‘liq emas 💚 Platina uchun misolda hisoblash natijasi 1 828 ₽. Qayta urinib ko‘ring."
+        }
+      ]
+    },
+    {
+      "id": "6",
+      "title": "UCH BONUS BIRGALIKDA",
+      "body": "Endi o‘rganilgan uch bonusni bitta tushunarli tizimga birlashtiramiz.\n\nO‘quv misolida: ustoz bonusi — 1 828 ₽, chuqurlik bonusi — 5 852 ₽, kenglik bonusi — 1 828 ₽. Misoldagi umumiy natija — 9 508 ₽.\n\nBu marketing-rejadagi o‘quv misoli, daromad va’dasi emas. Haqiqiy to‘lovlar marketing-reja shartlarining bajarilishiga bog‘liq.",
+      "quiz": [
+        {
+          "id": "l6q1",
+          "prompt": "Bu misolda ustoz bonusi qaysi harakat uchun hisoblanadi?",
+          "options": {
+            "A": "Boshlang‘ich to‘plam olgan, shaxsan taklif etilgan hamkor uchun",
+            "B": "Kichikroq guruhning tovar aylanmasi uchun",
+            "C": "Yangi binar chuqurlik uchun"
+          },
+          "correct": "A",
+          "hint": "To‘liq emas 💚 Ustoz bonusi boshlang‘ich to‘plam xarid qilgan, shaxsan taklif etilgan hamkor bilan bog‘liq. Qayta urinib ko‘ring."
+        },
+        {
+          "id": "l6q2",
+          "prompt": "Bu misolda chuqurlik bonusi nima uchun hisoblanadi?",
+          "options": {
+            "A": "Ikkita shaxsiy xarid uchun",
+            "B": "Yangi binar chuqurlik uchun: chapda yangi hamkor va o‘ngda yangi hamkor",
+            "C": "Faqat kichikroq guruh hajmi uchun"
+          },
+          "correct": "B",
+          "hint": "To‘liq emas 💚 Bu misolda chuqurlik bonusi yangi binar chuqurlik shakllanishi bilan bog‘liq — chapda va o‘ngda bittadan yangi hamkor. Qayta urinib ko‘ring."
+        },
+        {
+          "id": "l6q3",
+          "prompt": "Bu o‘quv misolidagi 9 508 ₽ summa qaysi uch bonusdan iborat?",
+          "options": {
+            "A": "Faqat chuqurlik bonusi va shaxsiy xaridlar",
+            "B": "Ustoz bonusi va kenglik bonusi",
+            "C": "Ustoz bonusi + chuqurlik bonusi + kenglik bonusi"
+          },
+          "correct": "C",
+          "hint": "To‘liq emas 💚 Bu o‘quv misolidagi 9 508 ₽ ustoz bonusi, chuqurlik bonusi va kenglik bonusidan iborat. Qayta urinib ko‘ring."
+        }
+      ]
+    },
+    {
+      "id": "7",
+      "title": "CHIZIQLI MARKETING",
+      "body": "Dastlabki uch bonusdan so‘ng marketing-rejaning keyingi qismiga — chuqurlik bo‘yicha 50 darajagacha bo‘lgan chiziqli marketingga o‘tamiz.\n\nSlaydda: 1–5 darajalar — 4%, 6–10 — 3%, 11–30 — 1%, 31–50 — 0,5%.",
+      "quiz": [
+        {
+          "id": "l7q1",
+          "prompt": "Bu slaydda chiziqli marketing nechta darajagacha hisoblanishi mumkin?",
+          "options": {
+            "A": "5 darajagacha",
+            "B": "10 darajagacha",
+            "C": "50 darajagacha"
+          },
+          "correct": "C",
+          "hint": "To‘liq emas 💚 Slayddagi oxirgi oraliqqa qarang: chiziqli marketing 50 darajagacha ko‘rsatilgan. Qayta urinib ko‘ring."
+        }
+      ]
+    },
+    {
+      "id": "8",
+      "title": "TUZILMA BILAN BIRGA DAROMAD QANDAY O‘SADI",
+      "body": "Endi marketing-rejaning o‘rganilgan qismlarini umumiy tizimga birlashtiramiz.\n\nTuzilma rivojlanishi bilan mukofotlarning turli turlari qo‘shilishi mumkin: ustoz bonusi, chuqurlik bonusi, kenglik bonusi, chiziqli marketing va boshqa bonuslar — tegishli marketing-reja shartlari bajarilganda.\n\nMuhim: tuzilmaning o‘sishi o‘z-o‘zidan daromad kafolati emas. To‘lovlar haqiqiy tovar aylanmasiga va aniq bonuslar shartlarining bajarilishiga bog‘liq.",
+      "quiz": [
+        {
+          "id": "l8q1",
+          "prompt": "Yangi hamkorlarni shaxsan taklif qilganingizda qaysi bonuslar ishlay boshlaydi?",
+          "options": {
+            "A": "Ustoz bonusi",
+            "B": "Faqat chiziqli marketing",
+            "C": "Faqat kenglik bonusi"
+          },
+          "correct": "A",
+          "hint": "To‘liq emas 💚 Boshlang‘ich to‘plam olgan hamkorni shaxsan taklif qilish ustoz bonusi bilan bog‘liq. Qayta urinib ko‘ring."
+        },
+        {
+          "id": "l8q2",
+          "prompt": "Chap va o‘ng guruhlar shakllanib, rivojlanganda nima qo‘shiladi?",
+          "options": {
+            "A": "Faqat shaxsiy xaridlar",
+            "B": "Shartlari bajarilganda chuqurlik va kenglik bonuslari mexanizmlari",
+            "C": "Hech qanday yangi bonus"
+          },
+          "correct": "B",
+          "hint": "To‘liq emas 💚 Chap va o‘ng guruhlar shakllanganda, umumiy tizimda chuqurlik va kenglik bonuslari mexanizmlari ishlay boshlaydi — ularning shartlari bajarilganda. Qayta urinib ko‘ring."
+        },
+        {
+          "id": "l8q3",
+          "prompt": "Uzoq muddatda daromad o‘sishi nimaga bog‘liq?",
+          "options": {
+            "A": "Faqat ro‘yxatdan o‘tgan odamlar soniga",
+            "B": "Bitta tanlangan bonusga",
+            "C": "Faol tuzilma rivojiga, tovar aylanmasiga va marketing-reja shartlarining bajarilishiga"
+          },
+          "correct": "C",
+          "hint": "To‘liq emas 💚 Uzoq muddatda faol tuzilma rivoji, tovar aylanmasi va marketing-reja shartlarining bajarilishi muhim. Qayta urinib ko‘ring."
+        }
+      ]
+    }
+  ]
+}
