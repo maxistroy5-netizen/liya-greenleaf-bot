@@ -175,7 +175,7 @@ def compact_zoom_invitation(event):
     return event
 
 
-def invitation_cover(c, step, title, language, height):
+def invitation_cover(c, step, language, height):
     """Draw a shared visual identity with a distinct symbol for each step."""
     c.setFillColor(CREAM)
     c.rect(0, 0, 720, height, fill=1, stroke=0)
@@ -206,13 +206,9 @@ def invitation_cover(c, step, title, language, height):
     else:
         c.roundRect(530, 909, 62, 50, 9, fill=0, stroke=1)
         c.lines([(592, 943, 615, 956), (615, 956, 615, 912), (615, 912, 592, 925)])
-    c.setFont('LiaBold', 13)
+    c.setFont('LiaBold', 34)
     c.setFillColor(colors.white)
-    c.drawString(56, 1012, 'GREENLEAF  /  LIA')
-    c.setFont('LiaText', 16)
-    c.setFillColor(GOLD)
-    c.drawString(56, 968, f'0{step}   /   03')
-    paragraph(c, title, 56, 938, 400, 32, True, colors.white)
+    c.drawString(56, 921, 'GREENLEAF')
     c.restoreState()
     c.setStrokeColor(GOLD)
     c.line(56, 58, 664, 58)
@@ -228,11 +224,11 @@ def invitations(code, recipient, sender='', event=''):
     event = compact_zoom_invitation(event)
     if len(event)>1800:raise ValueError('Event details too long')
     result=[]
-    for i,(title,body) in enumerate(zip(w['step_titles'],w['step_bodies']),1):
+    for i, body in enumerate(w['step_bodies'], 1):
         height = 1080 if i == 3 else 800
         stream=io.BytesIO();c=canvas.Canvas(stream,pagesize=(720,height))
-        c.setTitle(f'{i} | {title}')
-        invitation_cover(c, i, title, code, height)
+        c.setTitle('Greenleaf')
+        invitation_cover(c, i, code, height)
         greeting, *sections = body.format(recipient=recipient).splitlines()
         y = paragraph(c, greeting, 56, height-302, 608, 27, True)
         for section in sections:
