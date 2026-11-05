@@ -220,6 +220,9 @@ class Preview:
 
     async def show_course(self, update, result, code):
         body, buttons = render(load_catalog(code), result)
+        if code in MATERIAL_LANGUAGES and result.state["phase"] == "lesson":
+            lesson_id = result.state["lesson"]
+            buttons.insert(1, ("📎 PDF + PNG", f"tool:lesson:{lesson_id}"))
         markup = InlineKeyboardMarkup([[InlineKeyboardButton(label, callback_data=payload)] for label, payload in buttons])
         for chunk in split_message(body):
             await update.effective_message.reply_text(chunk, reply_markup=markup)
@@ -237,6 +240,8 @@ class Preview:
             rows = [[InlineKeyboardButton(ui["resume"], callback_data="course:resume")]]
             rows.extend([InlineKeyboardButton(f'{ui["lesson"]} {item["id"]} | {item["title"]}', callback_data=f'course:open:{item["id"]}')]
                          for item in data["lessons"])
+            if code in MATERIAL_LANGUAGES:
+                rows.append([InlineKeyboardButton(f'📄 {ui["course"]} (PDF)', callback_data="tool:lessons")])
             rows.append([InlineKeyboardButton(ui["home"], callback_data="nav:home")])
             await update.effective_message.reply_text(ui["title"], reply_markup=InlineKeyboardMarkup(rows))
             return

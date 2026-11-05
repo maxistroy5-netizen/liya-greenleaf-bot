@@ -87,7 +87,7 @@ async def handle_callback(update,context,code):
         if payload in ('tool:menu','tool:cancel'):
             context.user_data.pop('material_flow',None)
             context.user_data['surface']='dialogue'
-            await message.reply_text(w['tools'],reply_markup=buttons([(w['card'],'tool:card'),(w['steps'],'tool:steps'),(w['lessons'],'tool:lessons'),(w['home'],'nav:home')]))
+            await message.reply_text(w['tools'],reply_markup=buttons([(w['card'],'tool:card'),(w['steps'],'tool:steps'),(w['home'],'nav:home')]))
         elif payload=='tool:card':
             flow={'language':code,'kind':'card','field':'name','data':{}}
             context.user_data['material_flow']=flow;context.user_data['surface']='tools'
@@ -109,7 +109,6 @@ async def handle_callback(update,context,code):
         elif payload=='tool:lessons':
             context.user_data.pop('material_flow',None)
             await send_document(message,await asyncio.to_thread(lesson_pdf,code),f'LIA_8_lessons_{code}.pdf')
-            await message.reply_text(w['lessons'],reply_markup=buttons([(f'{w["lesson"]} {i} • PDF + PNG',f'tool:lesson:{i}') for i in range(1,9)]+[(w['home'],'nav:home')]))
         elif payload.startswith('tool:lesson:'):
             lesson_id=payload.removeprefix('tool:lesson:')
             if lesson_id not in {str(i) for i in range(1,9)}:return True
