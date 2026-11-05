@@ -137,6 +137,15 @@ class PreviewTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(self.store.get(30))
         self.create.assert_not_awaited()
 
+    async def test_plain_text_id_and_start_without_command_entities(self):
+        event = update(user_id=30, message_text="/id")
+        await self.preview.message(event, self.context)
+        self.assertIn("Telegram ID: 30", event.effective_message.reply_text.call_args.args[0])
+        event = update(user_id=30, message_text="/start")
+        await self.preview.message(event, self.context)
+        self.assertIn("список тестировщиков", event.effective_message.reply_text.call_args.args[0])
+        self.create.assert_not_awaited()
+
     async def test_course_question_switches_language_without_losing_position(self):
         self.store.set(10, "ru")
         self.preview.courses = CourseStore(self.store.path)

@@ -15,8 +15,8 @@ BASE = Path(__file__).resolve().parent
 sys.path.insert(0, str(BASE))
 
 from openai import AsyncOpenAI
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CallbackQueryHandler, CommandHandler, MessageHandler, filters
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram.ext import Application, CallbackQueryHandler, CommandHandler, MessageHandler, TypeHandler, filters
 
 from lia_languages import LANGUAGES, LanguageStore, language_choices, language_instruction, parse_language_choice, text
 from lia_preview_copy import copy
@@ -179,6 +179,14 @@ class Preview:
         await self.answer(update, context, "Begin the selected mode. This is a navigation action, not a learner answer.")
 
     async def message(self, update, context):
+        # Some forwarded/pasted command text lacks Telegram BOT_COMMAND entities.
+        # Handle the two diagnostic commands before checking the tester allowlist.
+        value = (update.effective_message.text or "").strip().strip("`")
+        command = value.split(maxsplit=1)[0].split("@", 1)[0].lower() if value else ""
+        if command == "/id":
+            return await self.identify(update, context)
+        if command == "/start":
+            return await self.start(update, context)
         if not self.allowed(update):
             return
         if not self.store.get(update.effective_user.id):
@@ -277,19 +285,28 @@ def main():
         LOG.info("Test bot identity verified: @%s; handlers ready", identity.username)
         if identity.id in testers:
             LOG.warning("Tester allowlist contains the bot ID; it must contain human user IDs")
+        hook = await app.bot.get_webhook_info()
+        LOG.info("Telegram pending updates: %s; webhook configured: %s", hook.pending_update_count, bool(hook.url))
+
+    async def observe_update(update, context):
+        # No message bodies, names, contact information or credentials in logs.
+        kind = "message" if update.message else "callback" if update.callback_query else "other"
+        LOG.info("Received Telegram update type=%s; private=%s", kind,
+                 bool(update.effective_chat and update.effective_chat.type == "private"))
 
     async def report_error(update, context):
         LOG.error("Telegram update failed: %s", type(context.error).__name__)
 
     app = (Application.builder().token(os.environ["LIA_PREVIEW_TELEGRAM_TOKEN"])
            .concurrent_updates(False).post_init(verify_bot).post_shutdown(close_client).build())
+    app.add_handler(TypeHandler(Update, observe_update), group=-100)
     app.add_handler(CommandHandler("start", preview.start))
     app.add_handler(CommandHandler("language", preview.choose))
     app.add_handler(CommandHandler("id", preview.identify))
     app.add_handler(CallbackQueryHandler(preview.callback, pattern=r"^(lang:|nav:|course:)"))
     app.add_handler(MessageHandler(filters.ChatType.PRIVATE & filters.TEXT & ~filters.COMMAND, preview.message))
     app.add_error_handler(report_error)
-    app.run_polling(drop_pending_updates=False)
+    app.run_polling(drop_pending_updates=False, allowed_updates=["message", "callback_query"])
 
 
 if __name__ == "__main__":
