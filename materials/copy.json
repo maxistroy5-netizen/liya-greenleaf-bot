@@ -38,10 +38,11 @@
       "Приглашение на встречу"
     ],
     "step_bodies": [
-      "{recipient}, привет! Я развиваюсь в международном проекте Greenleaf. Хочу поделиться электронной визиткой: там можно спокойно посмотреть информацию о компании, продукции и возможностях. Посмотри, когда будет удобно, без обязательств.",
-      "{recipient}, привет! Как твои впечатления от Greenleaf? Что откликнулось или заинтересовало больше всего? Буду рада обсудить и ответить на вопросы.",
-      "{recipient}, привет! Приглашаю тебя на встречу нашей команды. Можно спокойно познакомиться с проектом, услышать информацию и задать вопросы. Присоединяйся, если тебе интересно и удобно."
+      "{recipient}, привет!\nЯ развиваюсь в международном проекте Greenleaf.\nХочу поделиться электронной визиткой: там можно спокойно посмотреть информацию о компании, продукции и возможностях.\nПосмотри, когда будет удобно, без обязательств.",
+      "{recipient}, привет!\nКак твои впечатления от Greenleaf? Что откликнулось или заинтересовало больше всего?\nБуду рада обсудить и ответить на вопросы.",
+      "{recipient}, привет!\nПриглашаю тебя на встречу нашей команды.\nМожно спокойно познакомиться с проектом, услышать информацию и задать вопросы.\nПрисоединяйся, если тебе интересно и удобно."
     ],
+    "join_meeting": "Подключиться к встрече",
     "sender": "От",
     "details": "Детали встречи",
     "missing": "Детали встречи уточните у приглашающего.",
@@ -91,10 +92,11 @@
       "Uchrashuvga taklif"
     ],
     "step_bodies": [
-      "{recipient}, salom! Men Greenleaf xalqaro loyihasida rivojlanyapman. Siz bilan elektron vizitkamni ulashmoqchiman: unda kompaniya, mahsulotlar va imkoniyatlar haqida ma’lumot bor. O‘zingizga qulay vaqtda ko‘rib chiqing, bu sizga hech qanday majburiyat yuklamaydi.",
-      "{recipient}, salom! Greenleaf haqidagi taassurotlaringiz qanday? Nima sizga yoqdi yoki ko‘proq qiziqtirdi? Muhokama qilishdan va savollaringizga javob berishdan mamnun bo‘laman.",
-      "{recipient}, salom! Sizni jamoamiz uchrashuviga taklif qilaman. Loyiha bilan tanishish, ma’lumot olish va savollar berish mumkin. Qiziqsangiz va vaqtingiz qulay bo‘lsa, qo‘shiling."
+      "{recipient}, salom!\nMen Greenleaf xalqaro loyihasida rivojlanyapman.\nSiz bilan elektron vizitkamni ulashmoqchiman: unda kompaniya, mahsulotlar va imkoniyatlar haqida ma’lumot bor.\nO‘zingizga qulay vaqtda ko‘rib chiqing, bu sizga hech qanday majburiyat yuklamaydi.",
+      "{recipient}, salom!\nGreenleaf haqidagi taassurotlaringiz qanday? Nima sizga yoqdi yoki ko‘proq qiziqtirdi?\nMuhokama qilishdan va savollaringizga javob berishdan mamnun bo‘laman.",
+      "{recipient}, salom!\nSizni jamoamiz uchrashuviga taklif qilaman.\nLoyiha bilan tanishish, ma’lumot olish va savollar berish mumkin.\nQiziqsangiz va vaqtingiz qulay bo‘lsa, qo‘shiling."
     ],
+    "join_meeting": "Uchrashuvga qo‘shilish",
     "sender": "Kimdan",
     "details": "Uchrashuv ma’lumotlari",
     "missing": "Uchrashuv ma’lumotlarini taklif qilgan insondan aniqlashtiring.",

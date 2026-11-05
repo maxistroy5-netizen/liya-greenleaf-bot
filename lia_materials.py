@@ -175,6 +175,53 @@ def compact_zoom_invitation(event):
     return event
 
 
+def invitation_cover(c, step, title, language, height):
+    """Draw a shared visual identity with a distinct symbol for each step."""
+    c.setFillColor(CREAM)
+    c.rect(0, 0, 720, height, fill=1, stroke=0)
+    c.saveState()
+    c.translate(0, height - 1080)
+    c.setFillColor(GREEN)
+    c.roundRect(28, 817, 664, 235, 24, fill=1, stroke=0)
+    c.setFillColor(colors.HexColor('#235348'))
+    c.circle(573, 934, 85, fill=1, stroke=0)
+    c.setStrokeColor(GOLD)
+    c.setLineWidth(1)
+    c.circle(573, 934, 71, fill=0, stroke=1)
+    c.setStrokeColor(colors.white)
+    c.setLineWidth(2.2)
+    if step == 1:
+        c.roundRect(530, 904, 86, 60, 8, fill=0, stroke=1)
+        c.circle(551, 941, 7, fill=0, stroke=1)
+        c.arc(539, 911, 563, 931, 0, 180)
+        c.line(574, 943, 605, 943)
+        c.line(574, 928, 598, 928)
+    elif step == 2:
+        c.roundRect(552, 907, 65, 41, 10, fill=0, stroke=1)
+        c.setFillColor(colors.HexColor('#235348'))
+        c.roundRect(529, 931, 65, 41, 10, fill=1, stroke=1)
+        c.lines([(543, 931, 543, 921), (543, 921, 553, 931)])
+        for x in (547, 562, 577):
+            c.circle(x, 951, 2, fill=0, stroke=1)
+    else:
+        c.roundRect(530, 909, 62, 50, 9, fill=0, stroke=1)
+        c.lines([(592, 943, 615, 956), (615, 956, 615, 912), (615, 912, 592, 925)])
+    c.setFont('LiaBold', 13)
+    c.setFillColor(colors.white)
+    c.drawString(56, 1012, 'GREENLEAF  /  LIA')
+    c.setFont('LiaText', 16)
+    c.setFillColor(GOLD)
+    c.drawString(56, 968, f'0{step}   /   03')
+    paragraph(c, title, 56, 938, 400, 32, True, colors.white)
+    c.restoreState()
+    c.setStrokeColor(GOLD)
+    c.line(56, 58, 664, 58)
+    c.setFillColor(GREEN)
+    c.setFont('LiaText', 9)
+    c.drawString(56, 35, 'GREENLEAF  /  LIA')
+    c.drawRightString(664, 35, language.upper())
+
+
 def invitations(code, recipient, sender='', event=''):
     w=words(code);fonts()
     recipient=validate('name',recipient);sender=validate('name',sender) if sender else ''
@@ -182,24 +229,38 @@ def invitations(code, recipient, sender='', event=''):
     if len(event)>1800:raise ValueError('Event details too long')
     result=[]
     for i,(title,body) in enumerate(zip(w['step_titles'],w['step_bodies']),1):
-        stream=io.BytesIO();c=canvas.Canvas(stream,pagesize=(720,1080))
+        height = 1080 if i == 3 else 800
+        stream=io.BytesIO();c=canvas.Canvas(stream,pagesize=(720,height))
         c.setTitle(f'{i} | {title}')
-        y=frame(c,f'{i} | {title}',code)
-        y=paragraph(c,body.format(recipient=recipient),42,y,636,19)
-        if i==3:
-            y=paragraph(c,w['details'],42,y-15,636,16,True)
-            details=re.sub(r'https?://[^\s<>]+','',event).strip()
+        invitation_cover(c, i, title, code, height)
+        greeting, *sections = body.format(recipient=recipient).splitlines()
+        y = paragraph(c, greeting, 56, height-302, 608, 27, True)
+        for section in sections:
+            y = paragraph(c, section, 56, y-6, 608, 18)
+        if i == 3:
+            c.setStrokeColor(GOLD)
+            c.line(56, y, 664, y)
+            y = paragraph(c, w['details'], 56, y-17, 608, 17, True)
+            details = re.sub(r'https?://[^\s<>]+', '', event).strip()
             if details or not event:
-                y=paragraph(c,details or w['missing'],42,y,636,15)
-            # Explicit user details only; no inferred date, time, speaker or default Zoom.
-            for url in re.findall(r'https?://[^\s<>]+',event):
-                url=url.rstrip('.,;!?)')
-                if urlsplit(url).netloc:
-                    top=y
-                    y=paragraph(c,url,42,y,636,11)
-                    c.linkURL(url,(42,y+12,678,top),relative=0)
-        if sender:paragraph(c,w['sender']+': '+sender,42,min(y-25,260),636,14)
-        if code!='ru':paragraph(c,w['draft'],42,80,636,9,bottom=40)
+                y = paragraph(c, details or w['missing'], 56, y, 608, 13)
+            links = dict.fromkeys(url.rstrip('.,;!?)')
+                                  for url in re.findall(r'https?://[^\s<>]+', event))
+            for url in links:
+                if not urlsplit(url).netloc:
+                    continue
+                c.setFillColor(GREEN)
+                c.roundRect(56, y-45, 608, 45, 10, fill=1, stroke=0)
+                c.setFillColor(colors.white)
+                c.setFont('LiaBold', 14)
+                label = w['join_meeting'] if len(links) == 1 else urlsplit(url).hostname
+                c.drawCentredString(360, y-28, label)
+                c.linkURL(url, (56, y-45, 664, y), relative=0)
+                y -= 58
+        if sender:
+            paragraph(c, w['sender'] + ': ' + sender, 56, y-16, 608, 13)
+        if code != 'ru':
+            paragraph(c, w['draft'], 56, 82, 608, 8, bottom=60)
         c.save();result.append(stream.getvalue())
     return result
 
