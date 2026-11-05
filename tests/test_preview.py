@@ -160,6 +160,21 @@ class PreviewTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn(load_catalog("uz")["lessons"][0]["quiz"][1]["prompt"], event.effective_message.reply_text.call_args.args[0])
         self.create.assert_not_awaited()
 
+    async def test_plain_language_command_during_quiz_opens_picker_without_changing_progress(self):
+        self.store.set(10, "ru")
+        self.preview.courses = CourseStore(self.store.path)
+        self.preview.courses.act(10, "quiz", expected_revision=0)
+        self.context.user_data["surface"] = "course"
+        before = self.preview.courses.get(10)
+        for command in ("/language", "/language@Liya_Greenleaf_Test_bot"):
+            event = update(message_text=command)
+            await self.preview.message(event, self.context)
+            self.assertIn("Choose your language", event.effective_message.reply_text.call_args.args[0])
+            markup = event.effective_message.reply_text.call_args.kwargs["reply_markup"]
+            self.assertEqual(sum(len(row) for row in markup.inline_keyboard), 9)
+            self.assertEqual(self.preview.courses.get(10), before)
+        self.create.assert_not_awaited()
+
     async def test_course_callback_duplicate_is_rejected_in_telegram_adapter(self):
         self.store.set(10, "uz")
         self.preview.courses = CourseStore(self.store.path)

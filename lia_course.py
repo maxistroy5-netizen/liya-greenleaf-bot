@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import re
 import sqlite3
+from lia_languages import text as language_text
 
 ROOT = Path(__file__).resolve().parent / "course"
 AVAILABLE_LANGUAGES = ("ru", "uz")
@@ -143,5 +144,6 @@ def render(data, result):
         buttons = [(ui["check"], f"course:quiz:{revision}")]
     if result.feedback == "stale":
         body = ui["stale"] + "\n\n" + body
-    buttons.extend([(ui["title"], "course:menu"), (ui["home"], "nav:home")])
+    buttons.extend([(language_text(data["language"], "language"), "nav:language"),
+                    (ui["title"], "course:menu"), (ui["home"], "nav:home")])
     return heading + "\n\n" + body, buttons

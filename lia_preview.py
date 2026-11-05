@@ -180,13 +180,15 @@ class Preview:
 
     async def message(self, update, context):
         # Some forwarded/pasted command text lacks Telegram BOT_COMMAND entities.
-        # Handle the two diagnostic commands before checking the tester allowlist.
+        # Route navigation commands before treating text as a quiz answer.
         value = (update.effective_message.text or "").strip().strip("`")
         command = value.split(maxsplit=1)[0].split("@", 1)[0].lower() if value else ""
         if command == "/id":
             return await self.identify(update, context)
         if command == "/start":
             return await self.start(update, context)
+        if command == "/language":
+            return await self.choose(update, context)
         if not self.allowed(update):
             return
         if not self.store.get(update.effective_user.id):
