@@ -22,9 +22,9 @@ def controls(code,skip=False):
     return buttons(items)
 
 
-async def send_document(message,data,filename):
+async def send_document(message,data,filename,**kwargs):
     stream=io.BytesIO(data);stream.name=filename
-    await message.reply_document(document=stream,filename=filename)
+    await message.reply_document(document=stream,filename=filename,**kwargs)
 
 
 async def prompt(message,flow):
@@ -101,7 +101,10 @@ async def handle_callback(update,context,code):
             await advance(message,flow,'')
         elif payload=='tool:create' and flow and flow.get('field')=='confirm':
             pdf=await asyncio.to_thread(business_card,code,flow['data'],flow.get('photo'))
-            await send_document(message,pdf,f'LIA_card_{code}.pdf')
+            await send_document(
+                message, pdf, f'LIA_card_{code}.pdf',
+                reply_markup=buttons([(w['steps'], 'tool:steps')]),
+            )
             context.user_data.pop('material_flow',None)
         elif payload=='tool:lessons':
             context.user_data.pop('material_flow',None)
