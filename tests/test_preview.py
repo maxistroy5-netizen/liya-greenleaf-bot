@@ -121,7 +121,19 @@ class PreviewTests(unittest.IsolatedAsyncioTestCase):
             await self.preview.start(event, self.context)
             await self.preview.message(event, self.context)
             await self.preview.callback(event, self.context)
-            event.effective_message.reply_text.assert_not_awaited()
+            if event.effective_chat.type == "private":
+                self.assertIn("Telegram ID: 30", event.effective_message.reply_text.call_args.args[0])
+                self.assertEqual(event.effective_message.reply_text.await_count, 1)
+            else:
+                event.effective_message.reply_text.assert_not_awaited()
+        self.assertIsNone(self.store.get(30))
+        self.create.assert_not_awaited()
+
+    async def test_id_command_works_without_granting_access_or_calling_model(self):
+        event = update(user_id=30)
+        await self.preview.identify(event, self.context)
+        self.assertIn("Telegram ID: 30", event.effective_message.reply_text.call_args.args[0])
+        self.assertFalse(self.preview.allowed(event))
         self.assertIsNone(self.store.get(30))
         self.create.assert_not_awaited()
 

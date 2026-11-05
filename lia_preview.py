@@ -122,12 +122,23 @@ class Preview:
 
     async def start(self, update, context):
         if not self.allowed(update):
+            if update.effective_chat and update.effective_chat.type == "private" and update.effective_user:
+                LOG.warning("Start received, but tester access is not configured for this user")
+                await update.effective_message.reply_text(
+                    "Тестовая Лия получила /start, но ваш Telegram ID пока не добавлен в список тестировщиков.\n\n"
+                    f"Ваш Telegram ID: {update.effective_user.id}\n\n"
+                    "Добавьте эти цифры в LIA_PREVIEW_ALLOWED_USER_IDS тестового сервиса Render."
+                )
             return
         code = self.store.get(update.effective_user.id)
         if not code:
             return await self.choose(update, context)
         # /start does not erase an ongoing learning conversation or preference.
         await update.effective_message.reply_text(text(code, "greeting") + "\n\n" + notice(code), reply_markup=menu(code))
+
+    async def identify(self, update, context):
+        if update.effective_chat and update.effective_chat.type == "private" and update.effective_user:
+            await update.effective_message.reply_text(f"Ваш Telegram ID: {update.effective_user.id}")
 
     async def callback(self, update, context):
         query = update.callback_query
@@ -259,14 +270,34 @@ def main():
     async def close_client(app):
         await client.close()
 
+    async def verify_bot(app):
+        identity = await app.bot.get_me()
+        if (identity.username or "").lower() != "liya_greenleaf_test_bot":
+            raise ValueError("Token belongs to a different bot; refusing to poll")
+        LOG.info("Test bot identity verified: @%s; handlers ready", identity.username)
+        if identity.id in testers:
+            LOG.warning("Tester allowlist contains the bot ID; it must contain human user IDs")
+
+    async def report_error(update, context):
+        LOG.error("Telegram update failed: %s", type(context.error).__name__)
+
     app = (Application.builder().token(os.environ["LIA_PREVIEW_TELEGRAM_TOKEN"])
-           .concurrent_updates(False).post_shutdown(close_client).build())
+           .concurrent_updates(False).post_init(verify_bot).post_shutdown(close_client).build())
     app.add_handler(CommandHandler("start", preview.start))
     app.add_handler(CommandHandler("language", preview.choose))
+    app.add_handler(CommandHandler("id", preview.identify))
     app.add_handler(CallbackQueryHandler(preview.callback, pattern=r"^(lang:|nav:|course:)"))
     app.add_handler(MessageHandler(filters.ChatType.PRIVATE & filters.TEXT & ~filters.COMMAND, preview.message))
+    app.add_error_handler(report_error)
     app.run_polling(drop_pending_updates=False)
 
 
 if __name__ == "__main__":
-    main()
+    LOG.setLevel(logging.INFO)
+    LOG.addHandler(logging.StreamHandler())
+    try:
+        main()
+    except Exception as exc:
+        # InvalidToken exceptions embed the credential. Log only the type.
+        LOG.error("Test bot startup failed: %s", type(exc).__name__)
+        raise SystemExit(1) from None
