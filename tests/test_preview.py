@@ -27,6 +27,7 @@ class CopyTests(unittest.TestCase):
             expected = ["nav:learn", "nav:practice", "nav:quiz", "nav:ask", "nav:sources", "nav:language"]
             if code in {"ru", "uz"}:
                 expected.insert(0, "course:menu")
+            expected.append("tool:menu")
             self.assertEqual([row[0].callback_data for row in menu(code).inline_keyboard], expected)
         self.assertEqual(sum(len(row) for row in picker().inline_keyboard), 9)
 

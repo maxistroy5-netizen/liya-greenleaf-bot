@@ -2,7 +2,7 @@
 
 Run with: python -I /absolute/path/to/lia_preview.py
 Requires a DIFFERENT Telegram bot token and an explicit tester allowlist.
-Not a replacement for bot.py: static lessons and tools are not migrated yet.
+Not a replacement for bot.py: course and tools use isolated test implementations.
 """
 import logging
 import os
@@ -20,6 +20,8 @@ from telegram.ext import Application, CallbackQueryHandler, CommandHandler, Mess
 
 from lia_languages import LANGUAGES, LanguageStore, language_choices, language_instruction, parse_language_choice, text
 from lia_preview_copy import copy
+from lia_materials import SUPPORTED as MATERIAL_LANGUAGES, words as material_words
+from lia_tools import TOOL_LABELS, handle_callback as tools_callback, handle_message as tools_message
 from lia_course import AVAILABLE_LANGUAGES, CourseResult, CourseStore, load_catalog, render
 
 LOG = logging.getLogger(__name__)
@@ -66,14 +68,15 @@ def menu(code):
     ]
     if code in AVAILABLE_LANGUAGES:
         rows.insert(0, [InlineKeyboardButton(load_catalog(code)["ui"]["course"], callback_data="course:menu")])
+    rows.append([InlineKeyboardButton(TOOL_LABELS[code], callback_data="tool:menu")])
     return InlineKeyboardMarkup(rows)
 
 
 def notice(code):
     if code == "ru":
-        return "Тестовая версия: диалог и 8 текстовых уроков. Визитки, изображения и PDF пока остаются в основной Лии."
+        return "Тестовая версия: диалог, 8 текстовых уроков и материалы в разделе «Инструменты». Новые PDF и картинки собраны по текстовой версии курса; это не полный перевод исходных иллюстрированных слайдов."
     if code == "uz":
-        return "Sinov versiyasi: suhbat va 8 ta matnli dars. Vizit kartalari, rasmlar va PDF fayllari hozircha asosiy Liyada qoladi."
+        return "Sinov versiyasi: suhbat, 8 ta matnli dars va «Vositalar» bo‘limidagi materiallar. Yangi PDF va rasmlar matnli kurs asosida tuzilgan; ular dastlabki rasmlarning to‘liq tarjimasi emas."
     return copy(code, "notice")
 
 
@@ -133,6 +136,7 @@ class Preview:
         code = self.store.get(update.effective_user.id)
         if not code:
             return await self.choose(update, context)
+        context.user_data.pop("material_flow", None)
         # /start does not erase an ongoing learning conversation or preference.
         await update.effective_message.reply_text(text(code, "greeting") + "\n\n" + notice(code), reply_markup=menu(code))
 
@@ -148,6 +152,7 @@ class Preview:
         await query.answer()
         payload = query.data or ""
         if payload.startswith("lang:"):
+            context.user_data.pop("material_flow", None)
             try:
                 code = parse_language_choice(payload)
             except ValueError:
@@ -161,6 +166,9 @@ class Preview:
         code = self.store.get(update.effective_user.id)
         if not code or payload == "nav:language":
             return await self.choose(update, context)
+        if await tools_callback(update, context, code):
+            return
+        context.user_data.pop("material_flow", None)
         if payload.startswith("course:"):
             return await self.course_callback(update, context, code, payload)
         if payload == "nav:home":
@@ -176,7 +184,9 @@ class Preview:
         context.user_data["mode"] = mode
         context.user_data["surface"] = "dialogue"
         context.user_data["history"] = []
-        await self.answer(update, context, "Begin the selected mode. This is a navigation action, not a learner answer.")
+        if mode == "ask" and code in MATERIAL_LANGUAGES:
+            return await update.effective_message.reply_text(material_words(code)["ask_prompt"])
+        await self.answer(update, context, f"Start mode {mode} now. Follow its MODE instructions directly; do not ask which mode was selected.")
 
     async def message(self, update, context):
         # Some forwarded/pasted command text lacks Telegram BOT_COMMAND entities.
@@ -194,6 +204,8 @@ class Preview:
         if not self.store.get(update.effective_user.id):
             return await self.choose(update, context)
         code = self.store.get(update.effective_user.id)
+        if await tools_message(update, context, code):
+            return
         if self.courses and context.user_data.get("surface") == "course" and code in AVAILABLE_LANGUAGES:
             value = (update.effective_message.text or "").strip().upper()
             answer = {"А": "A", "Б": "B", "В": "C"}.get(value, value)
@@ -203,7 +215,8 @@ class Preview:
             else:
                 result = CourseResult(state)
             return await self.show_course(update, result, code)
-        await self.answer(update, context, update.effective_message.text)
+        if update.effective_message.text:
+            await self.answer(update, context, update.effective_message.text)
 
     async def show_course(self, update, result, code):
         body, buttons = render(load_catalog(code), result)
@@ -305,8 +318,8 @@ def main():
     app.add_handler(CommandHandler("start", preview.start))
     app.add_handler(CommandHandler("language", preview.choose))
     app.add_handler(CommandHandler("id", preview.identify))
-    app.add_handler(CallbackQueryHandler(preview.callback, pattern=r"^(lang:|nav:|course:)"))
-    app.add_handler(MessageHandler(filters.ChatType.PRIVATE & filters.TEXT & ~filters.COMMAND, preview.message))
+    app.add_handler(CallbackQueryHandler(preview.callback, pattern=r"^(lang:|nav:|course:|tool:)"))
+    app.add_handler(MessageHandler(filters.ChatType.PRIVATE & (filters.TEXT | filters.PHOTO) & ~filters.COMMAND, preview.message))
     app.add_error_handler(report_error)
     app.run_polling(drop_pending_updates=False, allowed_updates=["message", "callback_query"])
 
