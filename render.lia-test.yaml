@@ -1,0 +1,27 @@
+services:
+  - type: worker
+    name: lia-multilingual-test
+    runtime: python
+    repo: https://github.com/maxistroy5-netizen/liya-greenleaf-bot
+    branch: feature/multilingual-foundation
+    region: oregon
+    plan: 0.5c-512mb
+    numInstances: 1
+    autoDeployTrigger: off
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -I "$PWD/lia_preview.py"
+    disk:
+      name: lia-test-progress
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: LIA_LANGUAGE_DB
+        value: /var/data/lia-test.sqlite3
+      - key: LIA_PREVIEW_TELEGRAM_TOKEN
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: LIA_PREVIEW_MODEL
+        sync: false
+      - key: LIA_PREVIEW_ALLOWED_USER_IDS
+        sync: false
