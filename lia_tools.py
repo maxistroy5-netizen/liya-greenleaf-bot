@@ -34,6 +34,7 @@ async def prompt(message,flow):
     elif field=='sender':body=w['sender_prompt']
     elif field=='event':body=w['event']
     elif field=='name':body=w['required']
+    elif field=='max':body=w['max_prompt']
     else:body=w['prompt'].format(field=w[field])
     await message.reply_text(body,reply_markup=controls(flow['language'],field!='name' and field!='recipient'))
 
@@ -141,6 +142,9 @@ async def handle_message(update,context,code):
             await advance(message,flow,message.text)
         else:await prompt(message,flow)
     except ValueError:
+        if flow['field'] == 'max':
+            await prompt(message, flow)
+            return True
         await message.reply_text(words(code)['invalid'],reply_markup=controls(code,flow['field'] not in ('name','recipient','confirm')))
     except Exception as exc:
         LOG.warning('Material input failed: %s',type(exc).__name__)
