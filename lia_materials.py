@@ -150,9 +150,35 @@ def business_card(code, data, photo=None):
     c.save();return stream.getvalue()
 
 
+def compact_zoom_invitation(event):
+    """Keep participant-facing details from a copied Zoom invitation."""
+    if '\n' not in event:
+        return event
+
+    labels = re.compile(
+        r'^(?:Тема|Время|Идентификатор конференции|Код доступа|'
+        r'Topic|Time|Meeting ID|Passcode):\s*.+$', re.IGNORECASE
+    )
+    details = [line.strip() for line in event.splitlines() if labels.fullmatch(line.strip())]
+    if not details:
+        return event
+
+    for candidate in re.findall(r'https?://[^\s<>]+', event):
+        url = candidate.rstrip('.,;!?)')
+        parts = urlsplit(url)
+        host = (parts.hostname or '').lower()
+        if not any(host == domain or host.endswith('.' + domain)
+                   for domain in ('zoom.us', 'zoom.com')):
+            continue
+        if re.fullmatch(r'/(?:j/[0-9]+|my/[^/]+)', parts.path.rstrip('/')):
+            return '\n'.join([*details, url])
+    return event
+
+
 def invitations(code, recipient, sender='', event=''):
     w=words(code);fonts()
     recipient=validate('name',recipient);sender=validate('name',sender) if sender else ''
+    event = compact_zoom_invitation(event)
     if len(event)>1800:raise ValueError('Event details too long')
     result=[]
     for i,(title,body) in enumerate(zip(w['step_titles'],w['step_bodies']),1):
