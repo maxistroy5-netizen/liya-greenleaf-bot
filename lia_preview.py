@@ -4,6 +4,8 @@ Run with: python -I /absolute/path/to/lia_preview.py
 Requires a DIFFERENT Telegram bot token and an explicit tester allowlist.
 Not a replacement for bot.py: course and tools use isolated test implementations.
 """
+import io
+import asyncio
 import logging
 import os
 from pathlib import Path
@@ -20,7 +22,7 @@ from telegram.ext import Application, CallbackQueryHandler, CommandHandler, Mess
 
 from lia_languages import LANGUAGES, LanguageStore, language_choices, language_instruction, parse_language_choice, text
 from lia_preview_copy import copy
-from lia_materials import SUPPORTED as MATERIAL_LANGUAGES, words as material_words
+from lia_materials import SUPPORTED as MATERIAL_LANGUAGES, words as material_words, lesson_pdf, png_from_pdf
 from lia_tools import TOOL_LABELS, handle_callback as tools_callback, handle_message as tools_message
 from lia_course import AVAILABLE_LANGUAGES, CourseResult, CourseStore, load_catalog, render
 
@@ -223,6 +225,13 @@ class Preview:
         if code in MATERIAL_LANGUAGES and result.state["phase"] == "lesson":
             lesson_id = result.state["lesson"]
             buttons.insert(1, ("📎 PDF + PNG", f"tool:lesson:{lesson_id}"))
+            try:
+                pdf = await asyncio.to_thread(lesson_pdf, code, lesson_id)
+                png = await asyncio.to_thread(png_from_pdf, pdf)
+                await update.effective_message.reply_photo(photo=io.BytesIO(png))
+            except Exception as exc:
+                LOG.warning("Lesson image failed: %s", type(exc).__name__)
+
         markup = InlineKeyboardMarkup([[InlineKeyboardButton(label, callback_data=payload)] for label, payload in buttons])
         for chunk in split_message(body):
             await update.effective_message.reply_text(chunk, reply_markup=markup)
